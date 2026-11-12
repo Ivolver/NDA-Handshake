@@ -279,6 +279,12 @@ block starts with a line `nda-handshake: <kind>` and ends at the first
 blank line. Software reads only the block; the rest of the message is for
 people. Lines may be prefixed with `>` by an email program.
 
+The wording for people is not part of the protocol, and an implementation
+may write it as it likes. It should say plainly what is being asked and
+what happens next, and should put the block last, under a line telling
+people to leave it alone. No line for people may begin with
+`nda-handshake:`.
+
 Invitation, with no attachment:
 
     nda-handshake: invitation

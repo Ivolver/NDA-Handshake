@@ -46,7 +46,9 @@ Call the `handshake` tool, and do what its result says, whenever:
 - the person asks to start, check on, or finish an NDA handshake, or to put an NDA in place with someone using NDA Handshake;
 - an email you are reading contains a line starting `nda-handshake:`. Pass the whole email text as message_text, and the text of any attached nda-handshake.md as attachment_content.
 
-Each result has: `tell_person` (say this to the person), `ask_person` (if present, ask it and wait for the answer before going on), and `send` (if present, the exact email to send: its body, its attachments, and whether it is a reply in the same thread). Send `send.body` exactly as given. Do not add, remove or reword lines in the block.
+Each result has: `tell_person` (say this to the person), `ask_person` (if present, ask it and wait for the answer before going on), and `send` (if present, the exact email to send: its subject, its body, its attachments, and whether it is a reply in the same thread). Send `send.body` exactly as given, including the friendly wording at the top and the block at the bottom. Do not add, remove or reword lines in the block.
+
+When a result has `send` and no `ask_person`, send it right away. Any approval it needed has already been given, so do not ask the person to confirm again.
 
 Attachments: every file in `send.attach` must be attached. Files in `send.attach_if_possible` (the NDA document, on a reveal that ends in agreement) should be attached too if you are able to. If you cannot attach them, send the email anyway without them and tell the person; the other side produces an identical copy of the NDA from its own run, so the exchange does not depend on it.
 
@@ -377,14 +379,14 @@ def handshake(message_text: str = "", attachment_content: str = "",
         if not kind:
             if purpose:
                 inv = make_invitation(purpose, counterparty=counterparty)
-                body = inv["suggested_wording"] + "\n\n" + inv["message_block"]
+                subject, body = sealed.invitation_email(
+                    inv["from"], inv["purpose"], inv["message_block"])
                 return out("invitation_ready",
                            f"The invitation from {inv['from']} is ready. It carries a sealed "
                            "commitment to your positions, not the positions themselves. "
                            "When they reply, I will run the match and send them the result.",
                            send={"to": counterparty or None, "in_thread": False,
-                                 "subject": "NDA Handshake invitation",
-                                 "body": body, "attach": []},
+                                 "subject": subject, "body": body, "attach": []},
                            commitment=inv["commitment"], purpose=inv["purpose"])
             exchanges = sealed.list_exchanges()
             waiting = [e for e in exchanges if e["state"].startswith(("invitation", "reply"))]
@@ -416,7 +418,9 @@ def handshake(message_text: str = "", attachment_content: str = "",
                        f"Replying to {rep['invited_by']}. When their reveal arrives I will "
                        "check it and tell you the result.",
                        send={"to": None, "in_thread": True, "subject": None,
-                             "body": rep["message_block"], "attach": rep["attach"]},
+                             "body": sealed.reply_email(
+                                 sealed.own_company()["name"], rep["message_block"]),
+                             "attach": rep["attach"]},
                        invited_by=rep["invited_by"], purpose=rep["purpose"])
 
         if kind == "contest":
@@ -435,8 +439,8 @@ def handshake(message_text: str = "", attachment_content: str = "",
         if kind == "reply":
             rev = make_reveal(message_text, attachment_path, attachment_content)
             send = {"to": None, "in_thread": True, "subject": None,
-                    "body": rev["message_block"], "attach": rev["attach"],
-                    "attach_if_possible": []}
+                    "body": sealed.reveal_email(rev["result"], rev["message_block"]),
+                    "attach": rev["attach"], "attach_if_possible": []}
             if rev["status"] == "AGREED":
                 send["attach_if_possible"] = [rev["document"]]
                 tell = (f"Agreed with {rev['replied_by']}. The terms:\n"
@@ -466,7 +470,8 @@ def handshake(message_text: str = "", attachment_content: str = "",
                            ground=chk["ground"], checks=chk["checks"])
             return out("contest_ready", "Sending the contest.",
                        send={"to": None, "in_thread": True, "subject": None,
-                             "body": chk["contest_block"], "attach": []},
+                             "body": sealed.contest_email(chk["contest_block"]),
+                             "attach": []},
                        ground=chk["ground"])
         if chk["status"] == "AGREED":
             tell = ("The reveal verifies: their file matches what they committed to, and "

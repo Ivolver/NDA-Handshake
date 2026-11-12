@@ -351,6 +351,10 @@ async def run() -> int:
               started.get("step") == "invitation_ready" and started.get("ask_person") is None
               and started["send"]["attach"] == [] and started["send"]["in_thread"] is False
               and "nda-handshake: invitation" in inv_body
+              and inv_body.startswith("Hello,")
+              and f"What we would like to discuss: {PURPOSE}" in inv_body
+              and inv_body.rstrip().splitlines()[-5].startswith("nda-handshake:")
+              and "NDA Handshake: Harbor Example LLC" in started["send"]["subject"]
               and saved["check"]["file_fingerprint"] not in inv_body)
 
         # The second company keeps its own file elsewhere on the same machine.
@@ -395,6 +399,10 @@ async def run() -> int:
               and d["deal_folder"].startswith(os.path.join(storage, "deals")))
         check("the person is told the terms in plain words",
               "Governing law: Delaware" in revealed.get("tell_person", ""))
+        check("the reveal email reads well for the other side's people",
+              "We have a handshake." in revealed["send"]["body"]
+              and "  Governing law and venue: Delaware" in revealed["send"]["body"]
+              and "  NDA term: 1 year\n" in revealed["send"]["body"])
 
         # The reveal email quotes the earlier messages below it; the newest block wins.
         reveal_email = revealed["send"]["body"] + "\n> " + reply_email.replace("\n", "\n> ")
@@ -411,7 +419,8 @@ async def run() -> int:
         check("with the person's yes, the reply is ready to send",
               replied.get("step") == "reply_ready"
               and replied["send"]["attach"] == [own_path]
-              and "nda-handshake: reply" in replied["send"]["body"])
+              and "nda-handshake: reply" in replied["send"]["body"]
+              and "Happy to shake on it. Harbor Example LLC's" in replied["send"]["body"])
         rev3 = _sealed.make_reveal(replied["send"]["body"], own_path)
         verified = await hs(message_text=rev3["message_block"],
                             attachment_content=lakeside_text)

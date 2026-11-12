@@ -341,6 +341,122 @@ def conflict_report(result, own_name):
                 "the changed file. Assistants do not bargain with each other."}
 
 
+# ------------------------------------------------- the emails people read
+
+DIVIDER = "--- for the assistants (please leave this part as it is) ---"
+PROJECT_URL = "https://github.com/Ivolver/NDA-Handshake"
+MARKING_WORDS = {
+    "none": "none",
+    "written-marked": "written information must be marked confidential",
+    "written-marked-oral-confirmed":
+        "written information must be marked; oral information confirmed in writing",
+}
+STARTS_WORDS = {"effective-date": "the effective date",
+                "last-disclosure": "the last disclosure"}
+
+
+def _email(lines, block):
+    """The part for people, then the block the software reads, last."""
+    return "\n".join(["Hello,", ""] + lines + ["", DIVIDER, block])
+
+
+def _years(n):
+    return f"{n} year" if n == 1 else f"{n} years"
+
+
+def terms_lines(terms):
+    """The agreed terms as short plain lines."""
+    law, venue = terms.get("governing_law"), terms.get("venue")
+    out = [f"  NDA term: {_years(terms.get('nda_term_years'))}",
+           f"  Confidentiality period: {_years(terms.get('confidentiality_years'))} from "
+           + STARTS_WORDS.get(terms.get("confidentiality_starts"),
+                              str(terms.get("confidentiality_starts")))]
+    if law == venue:
+        out.append(f"  Governing law and venue: {law}")
+    else:
+        out += [f"  Governing law: {law}", f"  Venue: {venue}"]
+    out += [f"  Marking requirement: "
+            + MARKING_WORDS.get(terms.get("marking_requirement"),
+                                str(terms.get("marking_requirement"))),
+            "  Residuals clause: " + ("included" if terms.get("residuals") else "not included"),
+            "  Affiliate sharing: "
+            + ("included" if terms.get("affiliate_sharing") else "not included")]
+    return out
+
+
+def invitation_email(own_name, purpose, block):
+    subject = f"\U0001F91D NDA Handshake: {own_name} would like to put an NDA in place"
+    return subject, _email([
+        f"Before we get into the details, {own_name} would like to put a mutual NDA",
+        "in place. We use NDA Handshake, an open protocol that lets our assistants",
+        "settle a standard NDA so nobody has to trade redlines.",
+        "",
+        f"What we would like to discuss: {purpose}",
+        "",
+        "How it works:",
+        "  1. Our NDA positions are already locked in, sealed in the code below.",
+        "  2. Your assistant replies with your positions.",
+        "  3. We open ours, and both assistants work out the same NDA.",
+        "",
+        "Neither side sees the other's positions first, so there is no peeking and",
+        "no haggling. If your assistant knows NDA Handshake, just ask it to handle",
+        "this email. If not, reply and we will send a draft the old-fashioned way.",
+        "",
+        f"More about the protocol: {PROJECT_URL}",
+    ], block)
+
+
+def reply_email(own_name, block):
+    return _email([
+        f"Happy to shake on it. {own_name}'s NDA positions are attached.",
+        "",
+        "Your move: once your assistant opens your sealed positions, both sides",
+        "will see the same result.",
+    ], block)
+
+
+def reveal_email(result, block):
+    status = result.get("status")
+    if status == "AGREED":
+        lines = ["We have a handshake. Here is what our two sets of positions produced:", ""]
+        lines += terms_lines(result["terms"])
+        lines += ["",
+                  "You do not have to take our word for it. Our positions are attached, and",
+                  "your assistant will check them against the seal and run the numbers itself.",
+                  "",
+                  "Each assistant produces the same NDA document, and each side signs its own",
+                  "copy. Ours is attached if our assistant was able to attach it."]
+    elif status == "CONFLICTS":
+        failed = [TERM_LABELS.get(e["term"], e["term"]).replace(" (years)", "")
+                  for e in (result.get("summary") or {}).get("terms", [])
+                  if e.get("outcome") == "CONFLICT"]
+        lines = ["No handshake this time. Our positions and yours did not meet on:", ""]
+        lines += [f"  {label}" for label in failed]
+        lines += ["",
+                  "Our positions are attached, as promised, so your side can see the same",
+                  "result. If someone on your team would like to talk it through, just reply.",
+                  "Humans are still allowed to negotiate."]
+    else:
+        why = {"AGREED_PENDING_INFO":
+               "Our positions line up, but some details needed for the NDA are missing.",
+               "OUT_OF_PROTOCOL":
+               "One of us needs terms that NDA Handshake does not cover.",
+               "VERSION_MISMATCH":
+               "Our files follow different versions of the protocol."}.get(status, "")
+        lines = ["No handshake yet. " + why, "",
+                 "Our positions are attached, as promised, so your side can see the same",
+                 "result. This one is best finished by people, so just reply to this email."]
+    return _email(lines, block)
+
+
+def contest_email(block):
+    return _email([
+        "Our check of your reveal did not come out the same as yours, so we are not",
+        "treating this NDA as agreed yet. Could someone on your side take a look?",
+        "The details for your assistant are below.",
+    ], block)
+
+
 # ------------------------------------------------------------ the three steps
 
 def detect_kind(text):
