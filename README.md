@@ -6,7 +6,9 @@ Two companies exchange `nda-handshake.md` files. A matcher works out the NDA ter
 both can accept and drafts the cover page. Humans sign.
 
 See `SPEC.md` for the protocol: the file format, the closed list of
-negotiable terms, what is excluded, and the matching rules.
+negotiable terms, what is excluded, and the matching rules. When writing
+your own file, start with `GUIDE.md`, which walks through each of the nine
+choices in plain English.
 
 ## Run it
 
@@ -65,8 +67,12 @@ example files and compare against the same list.
 
 `mcp_server.py` is a local Model Context Protocol server. An AI assistant
 that speaks MCP (for example Claude Desktop) can use it to run a handshake.
-Three tools, local files only, no network:
+Four tools, local files only, no network:
 
+- `check_file(file_path)`: validates one `nda-handshake.md` on its own and
+  reports the declared protocol version, missing party facts, values not
+  on the protocol's allowed lists, unstated variables, and whether
+  `custom_terms_required` is set.
 - `fingerprint(file_path)`: the SHA-256 of one `nda-handshake.md`.
 - `match(file_a, file_b, purpose, out_dir)`: the structured result, with
   status, agreed terms, conflicts, open items, missing info and terms hash.

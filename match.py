@@ -320,6 +320,65 @@ def finish(out_dir, result, cover=None):
     sys.exit(EXIT[result["status"]])
 
 
+def check_file(path):
+    """Validate one nda-handshake.md and return a structured report.
+
+    Reads only the typed YAML fields at the top of the file; the markdown
+    body is never read. Reports whether the declared protocol version is
+    supported, which party facts are missing, which values are not on the
+    protocol's allowed lists, which variables are left unstated, and
+    whether custom_terms_required is set. Raises MatcherError if the file
+    cannot be read as an nda-handshake.md.
+    """
+    data = load(path)
+    declared_version = clean(data.get("nda_handshake"))
+    nda = data.get("nda") if isinstance(data.get("nda"), dict) else {}
+
+    missing_party_facts = []
+    bad_values = []
+    unstated = []
+
+    # Reuse the matcher's own entity logic to collect missing party facts.
+    pick_entity(data, None, "Party", missing_party_facts)
+
+    list_checks = [
+        ("form", FORMS),
+        ("governing_law", US_STATES),
+        ("venue", US_STATES),
+        ("marking_requirement", MARKING),
+        ("confidentiality_starts", CONF_STARTS),
+    ]
+    for name, allowed in list_checks:
+        if ranked(nda.get(name), allowed, name, "Party", bad_values) is None:
+            unstated.append(name)
+
+    for name, bounds in RANGES.items():
+        pos = nda.get(name)
+        if not isinstance(pos, dict):
+            unstated.append(name)
+        else:
+            read_range(pos, bounds, name, "Party", bad_values)
+
+    for t in TOGGLES:
+        raw = clean(nda.get(t))
+        if raw is None:
+            unstated.append(t)
+        elif raw.lower() not in TOGGLE_POSITIONS:
+            bad_values.append(
+                f"Party: {t} must be require, accept or reject; got '{raw}'")
+
+    return {
+        "file_fingerprint": fingerprint(path),
+        "declared_version": declared_version,
+        "supported_versions": sorted(PROTOCOL_VERSIONS),
+        "protocol_version_supported": declared_version in PROTOCOL_VERSIONS,
+        "custom_terms_required": nda.get("custom_terms_required") is True,
+        "missing_party_facts": missing_party_facts,
+        "bad_values": bad_values,
+        "unstated_variables": unstated,
+    }
+
+
 def run_match(file_a, file_b, purpose, entity_a=None, entity_b=None):
     """Match two nda-handshake.md files and return the structured result.
 

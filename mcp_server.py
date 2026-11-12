@@ -23,7 +23,13 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
 import make_cover_page
-from match import MatcherError, fingerprint as compute_fingerprint, render, run_match
+from match import (
+    MatcherError,
+    check_file as run_check_file,
+    fingerprint as compute_fingerprint,
+    render,
+    run_match,
+)
 
 mcp = MCPServer("nda-handshake")
 
@@ -61,6 +67,24 @@ def _local_dir(path: str) -> str:
     if not os.path.isdir(p):
         raise ToolError(f"Not a directory: {p}")
     return p
+
+
+@mcp.tool(annotations=READ_ONLY)
+def check_file(file_path: str) -> dict[str, Any]:
+    """Validate one local nda-handshake.md without matching it against anything.
+
+    Reads only the typed YAML fields at the top of the file; the markdown
+    body is never read or returned. Returns the file's fingerprint, the
+    declared protocol version and whether it is supported, whether
+    custom_terms_required is set, the missing party facts, the values that
+    are not on the protocol's allowed lists, and the variables left
+    unstated. Local files only; no network. Reports what a human should
+    fix; nothing is signed, sent, or published.
+    """
+    try:
+        return run_check_file(_local_file(file_path))
+    except MatcherError as e:
+        raise ToolError(str(e)) from e
 
 
 @mcp.tool(annotations=READ_ONLY)

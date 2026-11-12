@@ -55,8 +55,8 @@ async def run() -> int:
 
     async with Client(params, raise_exceptions=True) as client:
         tool_names = sorted(t.name for t in (await client.list_tools()).tools)
-        check("list_tools returns the three tools",
-              tool_names == ["fingerprint", "make_document", "match"],
+        check("list_tools returns the four tools",
+              tool_names == ["check_file", "fingerprint", "make_document", "match"],
               f"got {tool_names}")
 
         harbor_md = os.path.join(EXAMPLES, "harbor-fictional", "nda-handshake.md")
@@ -69,7 +69,69 @@ async def run() -> int:
         check("fingerprint matches expected-results.json for harbor",
               fp == want, f"got {fp}, want {want}")
 
+        # check_file on a valid example: nothing missing, nothing unstated.
+        valid = _structured(await client.call_tool("check_file", {"file_path": harbor_md}))
+        check("check_file on harbor: protocol version supported",
+              valid["protocol_version_supported"])
+        check("check_file on harbor: no missing party facts",
+              valid["missing_party_facts"] == [],
+              f"got {valid['missing_party_facts']}")
+        check("check_file on harbor: no bad values",
+              valid["bad_values"] == [], f"got {valid['bad_values']}")
+        check("check_file on harbor: no unstated variables",
+              valid["unstated_variables"] == [],
+              f"got {valid['unstated_variables']}")
+        check("check_file on harbor: no body text in the report",
+              "A made-up company" not in json.dumps(valid))
+
         with tempfile.TemporaryDirectory() as tmp:
+            # check_file on a deliberately incomplete temporary file.
+            incomplete_md = os.path.join(tmp, "incomplete.md")
+            with open(incomplete_md, "w", encoding="utf-8") as f:
+                f.write(
+                    "---\n"
+                    'nda_handshake: "0.3"\n'
+                    "company:\n  name: Incomplete Example (fictional)\n"
+                    "entities:\n"
+                    "  - id: inc\n"
+                    "    default: true\n"
+                    "    legal_name: Incomplete Example LLC\n"
+                    "    entity_type: limited liability company\n"
+                    "    formed_in: TODO\n"
+                    "    address: TODO\n"
+                    "signatory:\n  name: TODO\n  title: TODO\n"
+                    "notices:\n  email: TODO\n"
+                    "nda:\n"
+                    "  form:\n    prefer: common-paper-mnda-1.0\n"
+                    "    accept: [common-paper-mnda-1.0]\n"
+                    "  governing_law:\n    prefer: Atlantis\n"
+                    "    accept: [Atlantis]\n"
+                    "  residuals: maybe\n"
+                    "---\n\n"
+                    "# Incomplete Example LLC\n"
+                )
+            report = _structured(await client.call_tool(
+                "check_file", {"file_path": incomplete_md}))
+            check("check_file on incomplete: protocol version still supported",
+                  report["protocol_version_supported"])
+            check("check_file on incomplete: flags every TODO party fact",
+                  {"Party: formed_in", "Party: address",
+                   "Party: signatory_name", "Party: signatory_title",
+                   "Party: notice_email"}.issubset(set(report["missing_party_facts"])),
+                  f"got {report['missing_party_facts']}")
+            check("check_file on incomplete: flags Atlantis as not on the US-state list",
+                  any("Atlantis" in bv for bv in report["bad_values"]),
+                  f"got {report['bad_values']}")
+            check("check_file on incomplete: flags residuals 'maybe' as not require/accept/reject",
+                  any("residuals" in bv and "maybe" in bv for bv in report["bad_values"]),
+                  f"got {report['bad_values']}")
+            check("check_file on incomplete: lists unstated variables",
+                  set(report["unstated_variables"]) >= {
+                      "venue", "marking_requirement", "confidentiality_starts",
+                      "nda_term_years", "confidentiality_years",
+                      "affiliate_sharing",
+                  }, f"got {report['unstated_variables']}")
+
             # match on the AGREED pair
             agreed = _structured(await client.call_tool("match", {
                 "file_a": harbor_md, "file_b": lakeside_md,
