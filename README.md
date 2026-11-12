@@ -17,7 +17,11 @@ choices in plain English.
 
 ## Run it
 
-Requires Python 3 and PyYAML (`pip install pyyaml`).
+Requires Python 3.10 or newer. To install everything the project uses:
+
+    pip install -r requirements.txt
+
+The matcher alone needs only PyYAML.
 
     python3 match.py examples/harbor-fictional/nda-handshake.md examples/lakeside-fictional/nda-handshake.md \
         --purpose "Evaluating a potential business relationship" \
@@ -171,9 +175,9 @@ returns only the text it wrote itself. Every
 output is an unsigned draft that a qualified person should review before
 anyone signs anything.
 
-Requires Python 3.10 or newer and the SDK:
+Requires Python 3.10 or newer and the packages in `requirements.txt`:
 
-    pip install "mcp[cli]" pyyaml python-docx
+    pip install -r requirements.txt
 
 To add the server to Claude Desktop, open the developer settings
 (`Claude > Settings > Developer > Edit Config`) and add an `nda-handshake`

@@ -1,0 +1,7 @@
+# Everything needed to run the matcher, the document generator, the
+# connector and the tests:  pip install -r requirements.txt
+mcp>=2.3
+pyyaml>=6.0
+python-docx>=1.1
+# Optional: also checks every example and result against the schemas.
+jsonschema>=4.0
