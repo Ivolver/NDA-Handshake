@@ -4,10 +4,14 @@ Copyright 2026 Ultra Vires Labs LLC. This specification is licensed under CC BY 
 
 ## Idea
 
-Before two companies start talking, each shares a `company.md`. The file
+Before two companies start talking, each shares an `nda-handshake.md`. The file
 carries the facts an NDA needs and the company's NDA positions. Software
 intersects the two files and produces agreed terms on a standard form. A
 human on each side signs. No redlines for the routine case.
+
+The file has its own name so it cannot be confused with a general-purpose
+`company.md`. A company that keeps a `company.md` can link to its
+`nda-handshake.md` from there.
 
 ## Scope
 
@@ -25,7 +29,7 @@ Every element of the NDA sits in one of three layers:
 
 ## File layout
 
-A `company.md` has two parts:
+An `nda-handshake.md` has two parts:
 
 1. A YAML block at the top, between `---` lines. This is the only part
    software reads.

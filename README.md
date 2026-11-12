@@ -2,7 +2,7 @@
 
 Status: experimental, v0.2.
 
-Two companies exchange `company.md` files. A matcher works out the NDA terms
+Two companies exchange `nda-handshake.md` files. A matcher works out the NDA terms
 both can accept and drafts the cover page. Humans sign.
 
 See `SPEC.md` for the protocol: the file format, the closed list of
@@ -12,7 +12,7 @@ negotiable terms, what is excluded, and the matching rules.
 
 Requires Python 3 and PyYAML (`pip install pyyaml`).
 
-    python3 match.py examples/harbor-fictional/company.md examples/lakeside-fictional/company.md \
+    python3 match.py examples/harbor-fictional/nda-handshake.md examples/lakeside-fictional/nda-handshake.md \
         --purpose "Evaluating a potential business relationship" \
         --out out/harbor-lakeside
 
@@ -24,23 +24,23 @@ Outputs in the `--out` folder:
 
 To see the conflict path (expected status `CONFLICTS`, four conflicts):
 
-    python3 match.py examples/harbor-fictional/company.md examples/northwind-fictional/company.md \
+    python3 match.py examples/harbor-fictional/nda-handshake.md examples/northwind-fictional/nda-handshake.md \
         --purpose "Evaluating a potential business relationship" \
         --out out/harbor-northwind
 
 To see the out-of-protocol path (expected status `OUT_OF_PROTOCOL`):
 
-    python3 match.py examples/harbor-fictional/company.md examples/outlier-fictional/company.md \
+    python3 match.py examples/harbor-fictional/nda-handshake.md examples/outlier-fictional/nda-handshake.md \
         --purpose "Evaluating a potential business relationship" \
         --out out/harbor-outlier
 
 To print a file's fingerprint, for exchanging before the files themselves:
 
-    python3 match.py --fingerprint examples/harbor-fictional/company.md
+    python3 match.py --fingerprint examples/harbor-fictional/nda-handshake.md
 
 ## Before real use
 
-1. Replace every `TODO` in your `company.md`.
+1. Replace every `TODO` in your `nda-handshake.md`.
 2. Set your real NDA positions. The sample positions are placeholders.
 3. Have the output cover page reviewed and signed by a human.
 

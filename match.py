@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """NDA Handshake matcher, protocol v0.2
 
-Reads two company.md files, intersects their NDA positions, and writes
+Reads two nda-handshake.md files, intersects their NDA positions, and writes
 agreed terms (or a list of conflicts) plus a draft cover page.
 
 Safety rule: only the typed YAML fields at the top of each file are read.
@@ -276,21 +276,21 @@ def finish(out_dir, result, cover=None):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Match NDA terms from two company.md files")
-    ap.add_argument("files", nargs="*", help="Two company.md files")
+    ap = argparse.ArgumentParser(description="Match NDA terms from two nda-handshake.md files")
+    ap.add_argument("files", nargs="*", help="Two nda-handshake.md files")
     ap.add_argument("--purpose", help="Why the parties are sharing information")
     ap.add_argument("--entity-a", help="Entity id to use from the first file")
     ap.add_argument("--entity-b", help="Entity id to use from the second file")
     ap.add_argument("--out", default="out", help="Output folder")
     ap.add_argument("--fingerprint", metavar="FILE",
-                    help="Print the SHA-256 fingerprint of one company.md and exit")
+                    help="Print the SHA-256 fingerprint of one nda-handshake.md and exit")
     args = ap.parse_args()
 
     if args.fingerprint:
         print(fingerprint(args.fingerprint))
         return
     if len(args.files) != 2 or not args.purpose:
-        ap.error("give two company.md files and --purpose")
+        ap.error("give two nda-handshake.md files and --purpose")
 
     file_a, file_b = args.files
     a, b = load(file_a), load(file_b)

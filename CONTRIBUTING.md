@@ -5,7 +5,7 @@ Thanks for taking a look.
 ## Issues
 
 Open an issue on GitHub. Include what you expected, what happened, and the
-smallest `company.md` pair that reproduces it.
+smallest `nda-handshake.md` pair that reproduces it.
 
 ## Pull requests
 
