@@ -60,7 +60,9 @@ Standing rules:
 Setting a company up: when `handshake` returns the step `file_needed`, follow `details.onboarding`. Offer the three ways to set positions. If the person shares NDAs their company has signed, or its template, read them, propose a position for each term with the document it came from, and let the person confirm or change each one before anything is saved.
 - Never send the company's nda-handshake.md except as an attachment `send` names. In particular, never attach it to an invitation.
 - Do not negotiate with the other side's assistant. If a handshake does not end in agreement, show the person the report.
-- You never sign anything. The person signs."""
+- You never sign anything. The person signs.
+
+If the other side answers an invitation without an `nda-handshake:` block and asks for a draft the usual way, that is a perfectly good outcome. Call `draft_nda` with the invitation's purpose, show the person the positions, and with their go-ahead send the draft it returns. From there it is an ordinary negotiation between people."""
 
 mcp = MCPServer("nda-handshake", instructions=INSTRUCTIONS)
 
@@ -181,6 +183,42 @@ def _document(result: dict, folder: str):
     path = os.path.join(folder, "mnda.docx")
     make_cover_page.build(result).save(path)
     return path
+
+
+@mcp.tool(annotations=WRITES_LOCAL_FILES)
+def draft_nda(purpose: str, counterparty_name: str = "", out_dir: str = "") -> dict[str, Any]:
+    """Make an ordinary draft NDA for a counterparty that does not use NDA
+    Handshake.
+
+    Use this when the other side answers an invitation by asking for a
+    draft the usual way, or when the person asks for a draft NDA to send to
+    someone without a handshake. It writes the Common Paper Mutual NDA as a
+    Word document, filled in with this company's own preferred positions,
+    with the counterparty's details left in brackets to complete.
+
+    purpose is one line on why the companies are talking; use the purpose
+    of the invitation if there was one. Returns the document's path, the
+    positions used, and a short email to send with it. This is an ordinary
+    draft: no seal, no block for assistants, and the other side may mark it
+    up. Show the person the positions and get their go-ahead before sending.
+    """
+    try:
+        made = sealed.ordinary_draft(purpose, counterparty_name=counterparty_name or None)
+        folder = sealed._deal_folder(
+            out_dir or None, counterparty_name or "draft", "ordinary-draft",
+            os.path.dirname(sealed.own_file_path() or "") or None)
+    except MatcherError as e:
+        raise ToolError(str(e)) from e
+    path = os.path.join(folder, "mnda-draft.docx")
+    make_cover_page.build({"terms": made["terms"]}, draft_by=made["own_name"]).save(path)
+    return {"step": "draft_ready",
+            "tell_person": (f"An ordinary draft NDA from {made['own_name']} is ready at {path}. "
+                            "It uses your preferred positions:\n"
+                            + _positions_text(made["positions"])),
+            "ask_person": "Send this draft?",
+            "send": {"to": None, "in_thread": True, "subject": None,
+                     "body": sealed.draft_email(made["own_name"]), "attach": [path]},
+            "details": {"document": path, "your_positions": made["positions"]}}
 
 
 @mcp.tool(annotations=WRITES_LOCAL_FILES)

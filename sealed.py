@@ -302,6 +302,50 @@ def _write(path, text):
     return path
 
 
+BLANK_PARTY = {
+    "legal_name": "[Counterparty legal name]", "entity_type": "[entity type]",
+    "formed_in": "[state of formation]", "address": "[address]",
+    "signatory_name": "[name]", "signatory_title": "[title]",
+    "notice_email": "[email for notices]",
+}
+
+
+def ordinary_draft(purpose, own_source=None, counterparty_name=None):
+    """The terms of an ordinary draft: this company's own preferred positions.
+
+    For a counterparty that does not use NDA Handshake and asks for a draft
+    the usual way. No handshake is involved, so there is no terms hash.
+    """
+    purpose = _one_line(purpose, "purpose")
+    text, _ = _own_text(own_source)
+    result = run_match(FileText(text), FileText(text), purpose)
+    if result.get("status") != "AGREED":
+        raise MatcherError(
+            "An ordinary draft cannot be made from this company's file: " + (
+                "it says custom terms are required."
+                if result.get("status") == "OUT_OF_PROTOCOL" else
+                "it does not state a usable position on every term."))
+    terms = dict(result["terms"])
+    own = terms["parties"][0]
+    other = dict(BLANK_PARTY)
+    if counterparty_name:
+        other["legal_name"] = _one_line(counterparty_name, "counterparty")
+    terms["parties"] = [own, other]
+    return {"terms": terms, "own_name": own["legal_name"],
+            "positions": positions_summary(FileText(text))}
+
+
+def draft_email(own_name):
+    """The email that goes with an ordinary draft. It has no block for assistants."""
+    return "\n".join([
+        "Hello,", "",
+        "Of course. A draft mutual NDA is attached.", "",
+        "It is the Common Paper Mutual NDA, a standard form that is free to use. The",
+        f"standard terms are unchanged, and the choices on the cover page are {own_name}'s",
+        "usual positions. Mark it up as you would any draft, or tell us it works and we",
+        "will both sign.", ""])
+
+
 def conflict_report(result, own_name):
     """What failed, and a suggestion for this company's own human.
 

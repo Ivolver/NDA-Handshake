@@ -5,7 +5,7 @@
 Two companies' AI assistants put a standard mutual NDA in place over three
 emails, with no redlines.
 
-Status: experimental. Protocol v0.6. This is not legal advice.
+Protocol v0.6. This is not legal advice.
 
 ## The idea
 
@@ -97,7 +97,7 @@ aside.
 ## Get started
 
 1. **Install it.** Download `nda-handshake-<version>.mcpb` from the
-   [Releases page](https://github.com/Ivolver/NDA-Handshake/releases) and
+   [latest release](https://github.com/Ivolver/NDA-Handshake/releases/latest) and
    open it in Claude Desktop. It asks where to keep your files and installs
    itself. Other assistants can run it from the source; see
    "Install by hand" below.
@@ -114,8 +114,8 @@ two steps and then ask your assistant to handle the invitation.
 3. **Start a handshake**, or ask your assistant to handle an invitation
    you received.
 
-Install it only from the Releases page or a connector directory you
-already trust, never from a link in an email.
+Install it only from the project's Releases page or a connector directory
+you already trust, never from a link in an email.
 
 ## Read more
 
@@ -223,7 +223,7 @@ the cases where a file or a hash has been tampered with:
 
 `mcp_server.py` is a local Model Context Protocol server. An AI assistant
 that speaks MCP (for example Claude Desktop) can use it to run a handshake.
-Seven tools. Nothing is fetched from the network. The server also gives
+Eight tools. Nothing is fetched from the network. The server also gives
 the assistant standing instructions, so the person does not have to spell
 out the steps.
 
@@ -250,6 +250,13 @@ What this looks like to the people involved:
 
 Only two things ever need a person's yes: replying to an invitation, since
 it shares the company's positions, and sending a contest.
+
+- `draft_nda(purpose, counterparty_name)`: for a counterparty that does not
+  use NDA Handshake and asks for a draft the usual way. Writes the standard
+  form as a Word document with the company's own preferred positions and
+  the counterparty's details left to fill in, plus a short email to send
+  with it. An invitation is never wasted: the worst case is an ordinary
+  draft on a standard form.
 
 Setting up:
 
@@ -280,7 +287,7 @@ Working with files directly:
   `out_path` from the result the `match` tool returned. Refuses any status
   other than `AGREED`.
 
-All seven return structured output only. No tool returns the body text of
+All eight return structured output only. No tool returns the body text of
 a file it was given, or the contents of any other file; `draft_file`
 returns only the text it wrote itself. Every
 output is an unsigned draft that a qualified person should review before
@@ -289,14 +296,14 @@ anyone signs anything.
 ### Install with one click
 
 Download `nda-handshake-<version>.mcpb` from the project's
-[Releases page](https://github.com/Ivolver/NDA-Handshake/releases) and open
+[latest release](https://github.com/Ivolver/NDA-Handshake/releases/latest) and open
 it, or drag it into the Extensions settings of Claude Desktop. The app
 shows what the connector does, asks which folder should hold your
 company's file and your completed NDAs, and installs it. The app manages
 Python and the packages the connector needs; you do not need to install
 anything else or use a terminal.
 
-Install it only from that Releases page or from a connector directory you
+Install it only from the project's Releases page or from a connector directory you
 already trust. Do not install it from a link in an email, including an NDA
 Handshake invitation.
 

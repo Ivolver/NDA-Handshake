@@ -249,7 +249,14 @@ def summary_table(doc, summary):
     style_table(table, [1.3, 1.15, 1.15, 1.0, 1.7], pad=50)
 
 
-def build(result):
+def build(result, draft_by=None):
+    """Build the MNDA document.
+
+    draft_by: the legal name of a company proposing these terms as an
+    ordinary draft, with no handshake behind them. The document then has no
+    handshake record or terms hash, and ends with a short note saying what
+    it is.
+    """
     terms = result["terms"]
     form = FORMS.get(terms["form"])
     if form is None:
@@ -261,9 +268,14 @@ def build(result):
     props = doc.core_properties
     props.title = "Mutual Non-Disclosure Agreement"
     props.subject = f"NDA Handshake protocol {terms['protocol_version']}; form {terms['form']}"
-    props.keywords = f"nda-handshake; terms-hash:{result['terms_hash']}"
-    props.comments = ("Unsigned draft produced by the NDA Handshake matcher. "
-                      f"Terms hash (SHA-256): {result['terms_hash']}")
+    if draft_by:
+        props.keywords = "nda-handshake; ordinary-draft"
+        props.comments = (f"Unsigned draft proposed by {draft_by}. "
+                          "Not the result of a handshake.")
+    else:
+        props.keywords = f"nda-handshake; terms-hash:{result['terms_hash']}"
+        props.comments = ("Unsigned draft produced by the NDA Handshake matcher. "
+                          f"Terms hash (SHA-256): {result['terms_hash']}")
     props.author = "NDA Handshake"
     normal = doc.styles["Normal"]
     normal.font.name = SERIF
@@ -361,6 +373,21 @@ def build(result):
         para.paragraph_format.tab_stops.add_tab_stop(Inches(0.35))
         para.paragraph_format.space_after = Pt(7)
         add_runs(para, number + "\t" + re.sub(r"\[(.+?)\]\((.+?)\)", r"\1", body), size=9.5)
+
+    if draft_by:
+        # 3. A note on what this draft is, in place of a handshake record.
+        title(doc, "About This Draft", page_break=True)
+        for text in (
+            f"This draft was prepared by {draft_by}. It is an ordinary draft for "
+            "discussion and is not part of the MNDA.",
+            "The agreement is the Common Paper Mutual NDA, a standard form that is free "
+            "to use. The Standard Terms attached are unchanged. The only choices made "
+            f"are the ones on the Cover Page, and they are {draft_by}'s preferred "
+            "positions.",
+            "Mark it up or comment on it as you would any draft. Fill in your company's "
+            "details in the bracketed places in the signature block."):
+            doc.add_paragraph(text).paragraph_format.space_after = Pt(8)
+        return doc
 
     # 3. Handshake record
     title(doc, "NDA Handshake Record", page_break=True)

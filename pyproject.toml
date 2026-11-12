@@ -1,6 +1,6 @@
 [project]
 name = "nda-handshake"
-version = "0.10.2"
+version = "0.10.3"
 description = "Put a standard mutual NDA in place by a sealed exchange of three emails."
 readme = "README.md"
 requires-python = ">=3.10"
