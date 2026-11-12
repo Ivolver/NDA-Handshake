@@ -1,5 +1,5 @@
 {
-  "protocol_version": "0.5",
+  "protocol_version": "0.6",
   "purpose": "Evaluating a potential business relationship",
   "match_cases": [
     {
@@ -9,9 +9,14 @@
         "lakeside-fictional/nda-handshake.md"
       ],
       "status": "AGREED",
-      "terms_hash": "f7af24d311501be9564b655848d85c7c400f4a5004fb1fa6946a3067ff4351bc",
+      "terms_hash": "0d38a6b28361c9c2e1c8e0f978e5382c15a3bb920b9e2c7c6e5c1bb0095d5f4f",
       "governing_law": "Delaware",
-      "venue": "Delaware"
+      "venue": "Delaware",
+      "how": {
+        "confidentiality_starts": "Tie between effective-date and last-disclosure, broken because the default positions prefer it",
+        "governing_law": "Tie between Delaware and New York, broken because it is the state the default positions accept for every company",
+        "venue": "Tie between Delaware and New York, broken because it matches the governing law"
+      }
     },
     {
       "name": "Same pair, files in reverse order",
@@ -20,9 +25,14 @@
         "harbor-fictional/nda-handshake.md"
       ],
       "status": "AGREED",
-      "terms_hash": "f7af24d311501be9564b655848d85c7c400f4a5004fb1fa6946a3067ff4351bc",
+      "terms_hash": "0d38a6b28361c9c2e1c8e0f978e5382c15a3bb920b9e2c7c6e5c1bb0095d5f4f",
       "governing_law": "Delaware",
-      "venue": "Delaware"
+      "venue": "Delaware",
+      "how": {
+        "confidentiality_starts": "Tie between effective-date and last-disclosure, broken because the default positions prefer it",
+        "governing_law": "Tie between Delaware and New York, broken because it is the state the default positions accept for every company",
+        "venue": "Tie between Delaware and New York, broken because it matches the governing law"
+      }
     },
     {
       "name": "Harbor and Northwind conflict",
@@ -58,9 +68,14 @@
         "midtown-fictional/nda-handshake.md"
       ],
       "status": "AGREED",
-      "terms_hash": "ddaf92c899e2c0824505c96374533ab3628a404668defc7781c7abba844838d6",
+      "terms_hash": "e6e1aa1d2c0e1d4dd9d2c66b04f3a93a15fad8d06f47de9186f294231364adcb",
       "governing_law": "New York",
-      "venue": "New York"
+      "venue": "New York",
+      "how": {
+        "confidentiality_starts": "Tie between effective-date and last-disclosure, broken because the default positions prefer it",
+        "governing_law": "Tie between Delaware and New York, broken because both parties are formed there",
+        "venue": "Tie between Delaware and New York, broken because it matches the governing law"
+      }
     },
     {
       "name": "Pioneer and Quarry: both on default positions, same state",
@@ -69,7 +84,7 @@
         "quarry-fictional/nda-handshake.md"
       ],
       "status": "AGREED",
-      "terms_hash": "9b23ddb17021fb7baa6cdbbebd31961eff5bda6450211b9b892b00d50c42d974",
+      "terms_hash": "dd327738a26bad7e7e40c5f4be82b3e0e65db2311d745868b8ad6b7650d5cff0",
       "governing_law": "Texas",
       "venue": "Texas"
     },
@@ -80,7 +95,7 @@
         "harbor-fictional/nda-handshake.md"
       ],
       "status": "AGREED",
-      "terms_hash": "7a7be5132e56ca9e02a889d35d1852a9cd0fd4b80c26a6cccb6bd4ec6a1aee13",
+      "terms_hash": "633f95fd6f7cda850e184e1586d7755933a696d0aba4be71f67a41af26728475",
       "governing_law": "Delaware",
       "venue": "Delaware"
     },
@@ -108,12 +123,12 @@
     }
   ],
   "fingerprints": {
-    "harbor-fictional/nda-handshake.md": "d0ec36e96f52c153b2758ed4e958688c3790e73d53025360a5d6cd23919b3b1a",
-    "lakeside-fictional/nda-handshake.md": "8b919df4264ef3985746378d9dc821598eb21321a7d016fe24b96f94d9734cf2",
-    "midtown-fictional/nda-handshake.md": "09955d967a5004cce1f8cba623c8a2bd5ef4e11e5c2664cda782dae1ea4f2218",
-    "northwind-fictional/nda-handshake.md": "4ef8ce4164ff1234568ef51a3f894f2879cc83024f81fb875caec7e59051c137",
-    "outlier-fictional/nda-handshake.md": "818de1d6a0a30d8df8b69a83714740914c29e54caa479bd933baa35fa62d671f",
-    "pioneer-fictional/nda-handshake.md": "2d4b2ca7c06dc98112e8601ec0479a2ede7344d00bebb9b4445e4abefbe94662",
-    "quarry-fictional/nda-handshake.md": "3ec752febb829cf0b96fab58a10a30156bd6f2bcb25b645daaafd918f4013a3a"
+    "harbor-fictional/nda-handshake.md": "2df2e56cdd89edd415cf42e5f2a9e63cf5b8cefaf0df6139a8c9d0ed00ddf1c1",
+    "lakeside-fictional/nda-handshake.md": "74db5db834d802ebd5f0b1dc7c5e144710949f56e1f8c9ff37e1d0c91df58baf",
+    "midtown-fictional/nda-handshake.md": "5b1b7f115ee3c17c9650e60ee02674b1a33ae53757d2a5b9fd527fc53ed72588",
+    "northwind-fictional/nda-handshake.md": "b1ffd2b63ae3f9f1c7537c585005d4aa5639658b2fdf45bbbabe4394e5472ed7",
+    "outlier-fictional/nda-handshake.md": "d5db62cb9ecb4881ad69dd775bf32a877315bbb0cf073548bde773c4829849fc",
+    "pioneer-fictional/nda-handshake.md": "3baa7c526c59027380a3670686f8f33e235161f47f4a79db9531906dc0262487",
+    "quarry-fictional/nda-handshake.md": "710f9b8e4d7efa01063d52c16e486de24444052a604e9f5a0fa67529cdc7eca5"
   }
 }

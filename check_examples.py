@@ -70,6 +70,11 @@ def main():
         for key in ("governing_law", "venue"):
             if key in case and got.get("terms", {}).get(key) != case[key]:
                 problems.append(f"{key} {got.get('terms', {}).get(key)}, expected {case[key]}")
+        for term, want in case.get("how", {}).items():
+            entries = (got.get("summary") or {}).get("terms", [])
+            how = next((e.get("how") for e in entries if e["term"] == term), None)
+            if how != want:
+                problems.append(f"{term} reached by '{how}', expected '{want}'")
         if "conflicts" in case:
             got_names = sorted(c.split(":")[0] for c in got.get("conflicts", []))
             if got_names != sorted(case["conflicts"]):

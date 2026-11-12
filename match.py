@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NDA Handshake matcher, protocol v0.5
+"""NDA Handshake matcher, protocol v0.6
 
 Reads two nda-handshake.md files, intersects their NDA positions, and writes
 agreed terms (or a list of conflicts) plus a draft cover page.
@@ -17,7 +17,7 @@ import sys
 
 import yaml
 
-PROTOCOL_VERSIONS = {"0.5"}
+PROTOCOL_VERSIONS = {"0.6"}
 MAX_LEN = 200
 
 
@@ -59,6 +59,21 @@ PROFILES = {
     },
 }
 PROFILE_FALLBACK_STATE = "Delaware"
+
+
+def default_preference(term):
+    """The option the default positions prefer for a term, and why it breaks a tie.
+
+    For governing law and venue the default positions prefer each company's
+    own state, which differs between companies, so the tie goes to the state
+    the default positions name for every company.
+    """
+    if term in ("governing_law", "venue"):
+        return PROFILE_FALLBACK_STATE, "it is the state the default positions accept for every company"
+    position = PROFILES["default"].get(term)
+    if isinstance(position, dict) and position.get("prefer") is not None:
+        return position["prefer"], "the default positions prefer it"
+    return None, None
 
 
 def apply_profile(nda, formed_in, label, notes):
@@ -269,7 +284,8 @@ def match_choice(name, a, b, allowed, conflicts, open_items, notes, trace=None, 
     """Pick the option that ranks best for both sides.
 
     favored is an ordered list of (value, reason) pairs used to break a tie
-    on principle before falling back to alphabetical order.
+    on principle. After those, a tie goes to the option the protocol's
+    default positions prefer. Alphabetical order is the last resort.
     """
     ra = ranked(a, allowed, name, "Party A", notes)
     rb = ranked(b, allowed, name, "Party B", notes)
@@ -310,6 +326,10 @@ def match_choice(name, a, b, allowed, conflicts, open_items, notes, trace=None, 
             if candidate in tied:
                 value, how = candidate, f"Tie between {' and '.join(tied)}, broken because {reason}"
                 break
+        if value is None:
+            candidate, reason = default_preference(name)
+            if candidate in tied:
+                value, how = candidate, f"Tie between {' and '.join(tied)}, broken because {reason}"
         if value is None:
             value = tied[0]
             how = f"Tie between {' and '.join(tied)}, broken by alphabetical order"

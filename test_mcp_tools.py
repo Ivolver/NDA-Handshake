@@ -96,7 +96,7 @@ async def run() -> int:
             with open(incomplete_md, "w", encoding="utf-8") as f:
                 f.write(
                     "---\n"
-                    'nda_handshake: "0.5"\n'
+                    'nda_handshake: "0.6"\n'
                     "company:\n  name: Incomplete Example (fictional)\n"
                     "entities:\n"
                     "  - id: inc\n"

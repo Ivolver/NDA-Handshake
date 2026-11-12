@@ -1,4 +1,4 @@
-# NDA Handshake protocol: spec v0.5 (draft)
+# NDA Handshake protocol: spec v0.6 (draft)
 
 Copyright 2026 Ultra Vires Labs LLC. This specification is licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
 
@@ -39,7 +39,7 @@ An `nda-handshake.md` has two parts:
 ## Fields
 
 ### nda_handshake
-The protocol version the file follows, for example `"0.5"`.
+The protocol version the file follows, for example `"0.6"`.
 
 ### company
 - `name`: common name
@@ -167,7 +167,11 @@ than two parties; individuals as parties.
   1. For `venue`: the tied option that matches the agreed governing law.
   2. For `governing_law` and `venue`: the tied option that is the state in
      which both parties are formed.
-  3. For every list: alphabetical order.
+  3. For every list: the tied option that the default positions prefer.
+     For `governing_law` and `venue`, where the default positions prefer
+     each company's own state, this is Delaware, the state the default
+     positions accept for every company.
+  4. For every list: alphabetical order.
 - **Ranges** (`nda_term_years`, `confidentiality_years`): take the overlap
   of the two ranges, then the midpoint of the two preferences, rounded half
   up and kept inside the overlap. No overlap is a conflict.
@@ -288,7 +292,7 @@ people to leave it alone. No line for people may begin with
 Invitation, with no attachment:
 
     nda-handshake: invitation
-    protocol: 0.5
+    protocol: 0.6
     from: <legal name of the inviting company>
     purpose: <one line, at most 200 characters>
     commitment: <64 hex>
@@ -296,7 +300,7 @@ Invitation, with no attachment:
 Reply, with the replying company's `nda-handshake.md` attached:
 
     nda-handshake: reply
-    protocol: 0.5
+    protocol: 0.6
     from: <legal name of the replying company>
     commitment: <the invitation's commitment>
 
@@ -304,7 +308,7 @@ Reveal, with the inviting company's `nda-handshake.md` attached and, when
 agreed and where the sender is able to attach it, the NDA:
 
     nda-handshake: reveal
-    protocol: 0.5
+    protocol: 0.6
     commitment: <the invitation's commitment>
     secret: <64 hex>
     status: <AGREED, AGREED_PENDING_INFO, CONFLICTS, OUT_OF_PROTOCOL or VERSION_MISMATCH>
@@ -319,7 +323,7 @@ The last four lines are the receipt. They appear only when the status is
 Contest, sent only if the check fails:
 
     nda-handshake: contest
-    protocol: 0.5
+    protocol: 0.6
     commitment: <the invitation's commitment>
     ground: <commitment-mismatch, file-altered, status-mismatch or terms-hash-mismatch>
     my-hash: <the terms hash the contesting company computed, if any>
@@ -385,6 +389,13 @@ Machine-readable JSON Schemas for the file's fields and for a matcher's
 result are published in the `schema/` folder. They restate this spec for
 software and do not add rules. If a schema and this spec disagree, the spec
 governs.
+
+## Changes from v0.5
+
+- A tie between list options now goes to the option the default positions
+  prefer before falling back to alphabetical order. The file format is
+  unchanged: a v0.5 file becomes a v0.6 file by changing its version line.
+- The sealed exchange, added in revisions 0.5.1 and 0.5.2, is part of v0.6.
 
 ## Revision 0.5.2
 

@@ -236,7 +236,9 @@ def _own_text(own_source):
     report = check_file(FileText(text))
     problems = [f"missing: {m}" for m in report["missing_party_facts"]] + report["bad_values"]
     if not report["protocol_version_supported"]:
-        problems.append("the file's protocol version is not supported")
+        problems.append(
+            "the file's protocol version is not supported. If it says 0.5, change its "
+            f"nda_handshake line to \"{_protocol()}\"; the file format did not change")
     if problems:
         raise MatcherError("This company's own file is not ready: " + "; ".join(problems))
     return text, path

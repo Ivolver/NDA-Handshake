@@ -1,6 +1,6 @@
-# NDA Handshake (protocol v0.5)
+# NDA Handshake (protocol v0.6)
 
-Status: experimental. Protocol v0.5.
+Status: experimental. Protocol v0.6.
 
 Two companies exchange `nda-handshake.md` files. A matcher works out the NDA terms
 both can accept and drafts the cover page. Humans sign.

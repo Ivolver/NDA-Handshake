@@ -77,6 +77,26 @@ with tempfile.TemporaryDirectory() as tmp:
     check("both sides computed the same terms hash",
           ok["result"]["terms_hash"] == rev["result"]["terms_hash"])
 
+    # ---- The file committed to is the file used, even if the copy on disk changes.
+    as_company(tmp, "harbor")
+    disk = os.path.join(tmp, "harbor", "storage", "nda-handshake.md")
+    with open(disk, "w", encoding="utf-8") as fh:
+        fh.write(harbor)
+    inv_d = sealed.make_invitation(PURPOSE)          # uses the saved file
+    with open(disk, "w", encoding="utf-8") as fh:    # then the saved file is edited
+        fh.write(harbor.replace("legal@harbor.example", "changed@harbor.example"))
+    as_company(tmp, "lakeside")
+    rep_d = sealed.make_reply(inv_d["message_block"], FileText(lakeside))
+    as_company(tmp, "harbor")
+    rev_d = sealed.make_reveal(rep_d["message_block"], FileText(lakeside))
+    sent = open(rev_d["attach"][0], encoding="utf-8").read()
+    check("an edit to the saved file after inviting does not change the exchange",
+          sent == harbor and "changed@harbor.example" not in sent
+          and rev_d["result"]["terms_hash"] == rev["result"]["terms_hash"])
+    as_company(tmp, "lakeside")
+    check("and the other side still verifies it",
+          sealed.check_reveal(rev_d["message_block"], FileText(sent))["verified"])
+
     # ---- The inviter cannot change its file after seeing the reply.
     changed = harbor.replace("prefer: 1, min: 1, max: 2", "prefer: 2, min: 2, max: 2")
     bad = sealed.check_reveal(email(rev["message_block"]), FileText(changed))
@@ -130,7 +150,7 @@ with tempfile.TemporaryDirectory() as tmp:
                   inv["message_block"].replace(inv["commitment"], "abc"), FileText(lakeside)))
     check("an unsupported protocol version is refused",
           refused(sealed.make_reply,
-                  inv["message_block"].replace("protocol: 0.5", "protocol: 9.9"),
+                  inv["message_block"].replace("protocol: 0.6", "protocol: 9.9"),
                   FileText(lakeside)))
     check("an own file with a missing fact is refused",
           refused(sealed.make_invitation, PURPOSE,

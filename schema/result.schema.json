@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/Ivolver/NDA-Handshake/main/schema/result.schema.json",
-  "title": "Handshake result, NDA Handshake protocol v0.5",
+  "title": "Handshake result, NDA Handshake protocol v0.6",
   "description": "The result.json written by a matcher. The terms object is what the terms hash covers; the summary is a record only.",
   "type": "object",
   "required": [
@@ -36,7 +36,7 @@
       "properties": {
         "protocol_version": {
           "enum": [
-            "0.5"
+            "0.6"
           ]
         },
         "parties": {
