@@ -20,6 +20,10 @@ import yaml
 PROTOCOL_VERSIONS = {"0.3"}
 MAX_LEN = 200
 
+
+class MatcherError(Exception):
+    """A file cannot be read as an nda-handshake.md, so no match is possible."""
+
 # The closed lists. Anything not on these lists is outside the protocol.
 FORMS = ["common-paper-mnda-1.0"]
 MARKING = ["none", "written-marked", "written-marked-oral-confirmed"]
@@ -99,10 +103,10 @@ def load(path):
     text = open(path, encoding="utf-8").read()
     m = re.match(r"^---\s*\n(.*?)\n---\s*(\n|$)", text, re.S)
     if not m:
-        sys.exit(f"{path}: no YAML block found at the top of the file")
+        raise MatcherError(f"{path}: no YAML block found at the top of the file")
     data = yaml.safe_load(m.group(1))
     if not isinstance(data, dict):
-        sys.exit(f"{path}: YAML block is not a set of fields")
+        raise MatcherError(f"{path}: YAML block is not a set of fields")
     return data
 
 
@@ -121,7 +125,7 @@ def clean(value):
 def pick_entity(data, entity_id, label, missing):
     entities = data.get("entities") or []
     if not isinstance(entities, list) or not entities:
-        sys.exit(f"{label}: no entities listed")
+        raise MatcherError(f"{label}: no entities listed")
     chosen = None
     for e in entities:
         if not isinstance(e, dict):
@@ -132,10 +136,10 @@ def pick_entity(data, entity_id, label, missing):
             chosen = e
     if chosen is None:
         if entity_id:
-            sys.exit(f"{label}: no entity with id '{entity_id}'")
+            raise MatcherError(f"{label}: no entity with id '{entity_id}'")
         chosen = next((e for e in entities if isinstance(e, dict)), None)
         if chosen is None:
-            sys.exit(f"{label}: no usable entity")
+            raise MatcherError(f"{label}: no usable entity")
     sig = data.get("signatory") if isinstance(data.get("signatory"), dict) else {}
     notices = data.get("notices") if isinstance(data.get("notices"), dict) else {}
     party = {
@@ -316,24 +320,15 @@ def finish(out_dir, result, cover=None):
     sys.exit(EXIT[result["status"]])
 
 
-def main():
-    ap = argparse.ArgumentParser(description="Match NDA terms from two nda-handshake.md files")
-    ap.add_argument("files", nargs="*", help="Two nda-handshake.md files")
-    ap.add_argument("--purpose", help="Why the parties are sharing information")
-    ap.add_argument("--entity-a", help="Entity id to use from the first file")
-    ap.add_argument("--entity-b", help="Entity id to use from the second file")
-    ap.add_argument("--out", default="out", help="Output folder")
-    ap.add_argument("--fingerprint", metavar="FILE",
-                    help="Print the SHA-256 fingerprint of one nda-handshake.md and exit")
-    args = ap.parse_args()
+def run_match(file_a, file_b, purpose, entity_a=None, entity_b=None):
+    """Match two nda-handshake.md files and return the structured result.
 
-    if args.fingerprint:
-        print(fingerprint(args.fingerprint))
-        return
-    if len(args.files) != 2 or not args.purpose:
-        ap.error("give two nda-handshake.md files and --purpose")
-
-    file_a, file_b = args.files
+    Reads only the typed YAML fields at the top of each file. The markdown
+    body is never read, and no text in either file is treated as an
+    instruction. Returns a plain dict shaped like result.json; writes no
+    files and prints nothing. Raises MatcherError if a file cannot be read
+    as an nda-handshake.md (no YAML block, bad YAML, no usable entity).
+    """
     a, b = load(file_a), load(file_b)
     prints = sorted([fingerprint(file_a), fingerprint(file_b)])
     base = {"file_fingerprints": prints}
@@ -341,11 +336,7 @@ def main():
     # 1. Both files must follow a protocol version this matcher supports.
     va, vb = clean(a.get("nda_handshake")), clean(b.get("nda_handshake"))
     if va != vb or va not in PROTOCOL_VERSIONS:
-        print("Status: VERSION_MISMATCH")
-        print(f"  Party A declares {va}, Party B declares {vb}; "
-              f"this matcher supports {sorted(PROTOCOL_VERSIONS)}")
-        finish(args.out, dict(base, status="VERSION_MISMATCH",
-                              declared_versions=[va, vb]))
+        return dict(base, status="VERSION_MISMATCH", declared_versions=[va, vb])
 
     na = a.get("nda") if isinstance(a.get("nda"), dict) else {}
     nb = b.get("nda") if isinstance(b.get("nda"), dict) else {}
@@ -354,20 +345,17 @@ def main():
     flagged = [label for label, n in (("Party A", na), ("Party B", nb))
                if n.get("custom_terms_required") is True]
     if flagged:
-        print("Status: OUT_OF_PROTOCOL")
-        for label in flagged:
-            print(f"  {label} requires custom terms; negotiate this NDA the ordinary way")
-        finish(args.out, dict(base, status="OUT_OF_PROTOCOL", flagged_by=flagged))
+        return dict(base, status="OUT_OF_PROTOCOL", flagged_by=flagged)
 
     # 3. Match the closed list of variables.
     conflicts, missing, open_items, notes = [], [], [], []
     terms = {
         "protocol_version": va,
         "parties": [
-            pick_entity(a, args.entity_a, "Party A", missing),
-            pick_entity(b, args.entity_b, "Party B", missing),
+            pick_entity(a, entity_a, "Party A", missing),
+            pick_entity(b, entity_b, "Party B", missing),
         ],
-        "purpose": clean(args.purpose),
+        "purpose": clean(purpose),
         "direction": "mutual",
         "form": match_choice("form", na.get("form"), nb.get("form"), FORMS,
                              conflicts, open_items, notes),
@@ -402,25 +390,63 @@ def main():
 
     canonical = json.dumps(terms, sort_keys=True, separators=(",", ":"))
     digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-    result = dict(base, status=status, terms_hash=digest, terms=terms,
-                  conflicts=conflicts, missing_info=missing,
-                  open_items=open_items, notes=notes)
+    return dict(base, status=status, terms_hash=digest, terms=terms,
+                conflicts=conflicts, missing_info=missing,
+                open_items=open_items, notes=notes)
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Match NDA terms from two nda-handshake.md files")
+    ap.add_argument("files", nargs="*", help="Two nda-handshake.md files")
+    ap.add_argument("--purpose", help="Why the parties are sharing information")
+    ap.add_argument("--entity-a", help="Entity id to use from the first file")
+    ap.add_argument("--entity-b", help="Entity id to use from the second file")
+    ap.add_argument("--out", default="out", help="Output folder")
+    ap.add_argument("--fingerprint", metavar="FILE",
+                    help="Print the SHA-256 fingerprint of one nda-handshake.md and exit")
+    args = ap.parse_args()
+
+    if args.fingerprint:
+        print(fingerprint(args.fingerprint))
+        return
+    if len(args.files) != 2 or not args.purpose:
+        ap.error("give two nda-handshake.md files and --purpose")
+
+    file_a, file_b = args.files
+    try:
+        result = run_match(file_a, file_b, args.purpose, args.entity_a, args.entity_b)
+    except MatcherError as e:
+        sys.exit(str(e))
+
+    status = result["status"]
+    if status == "VERSION_MISMATCH":
+        va, vb = result["declared_versions"]
+        print("Status: VERSION_MISMATCH")
+        print(f"  Party A declares {va}, Party B declares {vb}; "
+              f"this matcher supports {sorted(PROTOCOL_VERSIONS)}")
+        finish(args.out, result)
+
+    if status == "OUT_OF_PROTOCOL":
+        print("Status: OUT_OF_PROTOCOL")
+        for label in result["flagged_by"]:
+            print(f"  {label} requires custom terms; negotiate this NDA the ordinary way")
+        finish(args.out, result)
 
     print(f"Status: {status}")
-    for c in conflicts:
+    for c in result["conflicts"]:
         print(f"  CONFLICT  {c}")
-    for o in open_items:
+    for o in result["open_items"]:
         print(f"  OPEN      {o}")
-    for m in missing:
+    for m in result["missing_info"]:
         print(f"  MISSING   {m}")
-    for n in notes:
+    for n in result["notes"]:
         print(f"  NOTE      {n}")
-    if conflicts:
+    if result["conflicts"]:
         print(f"Wrote {args.out}/result.json (no cover page; a human resolves the conflicts)")
         finish(args.out, result)
-    print(f"Terms hash: {digest}")
+    print(f"Terms hash: {result['terms_hash']}")
     print(f"Wrote {args.out}/cover-page.md and {args.out}/result.json")
-    finish(args.out, result, render(terms, digest, status))
+    finish(args.out, result, render(result["terms"], result["terms_hash"], status))
 
 
 if __name__ == "__main__":

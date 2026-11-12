@@ -61,6 +61,36 @@ check this matcher against it:
 Anyone building another implementation of the protocol can run the same
 example files and compare against the same list.
 
+## Use with an AI assistant
+
+`mcp_server.py` is a local Model Context Protocol server. An AI assistant
+that speaks MCP (for example Claude Desktop) can use it to run a handshake.
+Three tools, local files only, no network:
+
+- `fingerprint(file_path)`: the SHA-256 of one `nda-handshake.md`.
+- `match(file_a, file_b, purpose, out_dir)`: the structured result, with
+  status, agreed terms, conflicts, open items, missing info and terms hash.
+  Also writes `result.json` and, when terms are agreed, `cover-page.md` in
+  `out_dir`.
+- `make_document(result_path)`: writes the signable Word document next to
+  the result. Refuses any status other than `AGREED`.
+
+All three return structured output only; neither the body text of an
+`nda-handshake.md` nor the contents of any other file is returned. Every
+output is an unsigned draft that a qualified person should review before
+anyone signs anything.
+
+Requires Python 3.10 or newer and the SDK:
+
+    pip install "mcp[cli]" pyyaml python-docx
+
+To add the server to Claude Desktop, open the developer settings
+(`Claude > Settings > Developer > Edit Config`) and add an `nda-handshake`
+entry under `mcpServers`, pointing `command` at a Python with the three
+packages installed and `args` at `mcp_server.py` in this folder. The
+config file lives at `~/Library/Application Support/Claude/claude_desktop_config.json`
+on macOS. Restart Claude Desktop to pick up the change.
+
 ## Before real use
 
 1. Replace every `TODO` in your `nda-handshake.md`.
