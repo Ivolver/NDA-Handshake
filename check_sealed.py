@@ -139,6 +139,19 @@ with tempfile.TemporaryDirectory() as tmp:
     check("the report speaks from the reader's side",
           "6 to 10" in years["your_position"] and "2 to 5" in years["their_position"])
 
+    # ---- An exchange sealed under an older protocol version is shown as expired.
+    as_company(tmp, "harbor")
+    old = sealed.make_invitation(PURPOSE, FileText(harbor))
+    path = sealed._record_path("inviter", old["commitment"])
+    import json as _json
+    rec = _json.load(open(path, encoding="utf-8"))
+    rec["own_file"] = rec["own_file"].replace('nda_handshake: "0.6"', 'nda_handshake: "0.5"')
+    _json.dump(rec, open(path, "w", encoding="utf-8"))
+    states = {e["commitment"]: e["state"] for e in sealed.list_exchanges()}
+    check("an unfinished exchange from an older protocol version is marked expired",
+          states[old["commitment"][:8]].startswith("expired")
+          and sum(s.startswith("expired") for s in states.values()) == 1)
+
     # ---- Refusals.
     as_company(tmp, "lakeside")
     check("a reveal for an unknown exchange is refused",

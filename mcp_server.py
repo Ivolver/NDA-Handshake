@@ -400,8 +400,13 @@ def handshake(message_text: str = "", attachment_content: str = "",
                            commitment=inv["commitment"], purpose=inv["purpose"])
             exchanges = sealed.list_exchanges()
             waiting = [e for e in exchanges if e["state"].startswith(("invitation", "reply"))]
+            expired = [e for e in exchanges if e["state"].startswith("expired")]
             tell = (f"NDA Handshake is set up. {len(waiting)} exchange(s) in progress."
                     if waiting else "NDA Handshake is set up. No exchange is in progress.")
+            if expired:
+                tell += (f" {len(expired)} older exchange(s) can no longer be completed because "
+                         "the protocol has been updated since; ignore them, and start a new "
+                         "handshake if the NDA is still wanted.")
             return out("status", tell,
                        how_to_start="To start one, call handshake with purpose (one line on "
                                     "why the companies are talking) and counterparty.",

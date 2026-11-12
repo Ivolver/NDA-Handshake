@@ -502,6 +502,12 @@ def own_company(own_source=None):
             "your_positions": positions_summary(FileText(text))}
 
 
+def _record_version(record):
+    """The protocol version of the file an exchange was sealed with."""
+    m = re.search(r'^nda_handshake:\s*"?([0-9.]+)"?\s*$', record.get("own_file") or "", re.M)
+    return m.group(1) if m else None
+
+
 def list_exchanges():
     """Every exchange recorded on this machine, newest first."""
     folder = os.path.join(home(), "exchanges")
@@ -515,6 +521,17 @@ def list_exchanges():
             with open(os.path.join(folder, name), encoding="utf-8") as f:
                 r = json.load(f)
         except (OSError, ValueError):
+            continue
+        finished = r.get("revealed") or r.get("checked")
+        if not finished and _record_version(r) not in PROTOCOL_VERSIONS:
+            # Sealed under an older version of the protocol; it can no longer be completed.
+            out.append({"role": r.get("role"),
+                        "counterparty": r.get("counterparty") or r.get("invited_by") or "not yet known",
+                        "purpose": r.get("purpose"),
+                        "state": "expired: started under an older protocol version; "
+                                 "start a new handshake instead",
+                        "started": r.get("created"), "deal_folder": None,
+                        "commitment": (r.get("commitment") or "")[:8]})
             continue
         if r.get("role") == "inviter":
             state = (f"finished: {r.get('status')}" if r.get("revealed")
