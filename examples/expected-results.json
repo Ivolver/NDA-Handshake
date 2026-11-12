@@ -1,0 +1,65 @@
+{
+  "protocol_version": "0.3",
+  "purpose": "Evaluating a potential business relationship",
+  "match_cases": [
+    {
+      "name": "Harbor and Lakeside agree",
+      "files": [
+        "harbor-fictional/nda-handshake.md",
+        "lakeside-fictional/nda-handshake.md"
+      ],
+      "status": "AGREED",
+      "terms_hash": "056336ebb3044ac2f3950943fbcb7f4d730390b98edbe4d161dc6a5b7edadcd7"
+    },
+    {
+      "name": "Same pair, files in reverse order",
+      "files": [
+        "lakeside-fictional/nda-handshake.md",
+        "harbor-fictional/nda-handshake.md"
+      ],
+      "status": "AGREED",
+      "terms_hash": "056336ebb3044ac2f3950943fbcb7f4d730390b98edbe4d161dc6a5b7edadcd7"
+    },
+    {
+      "name": "Harbor and Northwind conflict",
+      "files": [
+        "harbor-fictional/nda-handshake.md",
+        "northwind-fictional/nda-handshake.md"
+      ],
+      "status": "CONFLICTS",
+      "conflicts": [
+        "confidentiality_years",
+        "governing_law",
+        "venue",
+        "residuals"
+      ]
+    },
+    {
+      "name": "Lakeside and Northwind",
+      "files": [
+        "lakeside-fictional/nda-handshake.md",
+        "northwind-fictional/nda-handshake.md"
+      ],
+      "status": "CONFLICTS",
+      "conflicts": [
+        "confidentiality_years",
+        "governing_law",
+        "venue"
+      ]
+    },
+    {
+      "name": "Outlier is out of protocol",
+      "files": [
+        "harbor-fictional/nda-handshake.md",
+        "outlier-fictional/nda-handshake.md"
+      ],
+      "status": "OUT_OF_PROTOCOL"
+    }
+  ],
+  "fingerprints": {
+    "harbor-fictional/nda-handshake.md": "8cc177c0de2b51d4705f270de454d60343f6eb4d4415bb2951e930c4f0383437",
+    "lakeside-fictional/nda-handshake.md": "941d9cd9f948969ccadcb99e0a3ee4c994d3c34d5b60ded74c544f7422b22fd0",
+    "northwind-fictional/nda-handshake.md": "72b9616e876f9a25a23a336bd3b4dc28543d66e8d9ef34bdfca164f6111e6ebc",
+    "outlier-fictional/nda-handshake.md": "0e54c7533b8cb6a07008948f16040b098b50768a1320269201674140cc939a02"
+  }
+}

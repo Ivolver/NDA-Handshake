@@ -38,6 +38,29 @@ To print a file's fingerprint, for exchanging before the files themselves:
 
     python3 match.py --fingerprint examples/harbor-fictional/nda-handshake.md
 
+## Make the signable document
+
+Once a match returns `AGREED`, turn its result into a Word document
+(requires `pip install python-docx`):
+
+    python3 make_cover_page.py out/harbor-lakeside/result.json
+
+This writes `mnda.docx` next to the result. It holds the Common Paper Cover
+Page filled in with the agreed terms, the Standard Terms attached for
+convenience, and a one-page handshake record that is not part of the
+agreement. Any other status produces no document.
+
+## Check an implementation
+
+`examples/expected-results.json` lists each example pair with its expected
+status, terms hash and conflicts, plus each example file's fingerprint. To
+check this matcher against it:
+
+    python3 check_examples.py
+
+Anyone building another implementation of the protocol can run the same
+example files and compare against the same list.
+
 ## Before real use
 
 1. Replace every `TODO` in your `nda-handshake.md`.
@@ -62,3 +85,7 @@ real entity is coincidental.
 Code is released under the Apache License, Version 2.0. See `LICENSE` and
 `NOTICE`. The specification in `SPEC.md` is licensed under CC BY 4.0.
 Copyright 2026 Ultra Vires Labs LLC.
+
+The `forms/common-paper-mnda-1.0/` folder contains the Common Paper Mutual
+NDA Standard Terms (Version 1.0), unmodified, which Common Paper releases
+under CC BY 4.0. See `SOURCE.md` in that folder.

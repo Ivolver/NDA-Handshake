@@ -39,6 +39,53 @@ US_STATES = [
     "Virginia", "Washington", "West Virginia", "Wisconsin", "Wyoming",
 ]
 
+# Fixed wording for each change to the form's Standard Terms. This text is part
+# of the protocol (see SPEC.md, "Standard change text"), so every
+# implementation writes the same words on the Cover Page.
+CHANGE_TEXT = {
+    "written-marked": (
+        'Section 1 is modified so that information disclosed in written or other '
+        'tangible form is Confidential Information only if the Disclosing Party marks '
+        'it "confidential", "proprietary", or the like when disclosing it. This change '
+        'does not affect information disclosed orally or visually, the existence and '
+        "status of the parties' discussions, or information on the Cover Page."),
+    "written-marked-oral-confirmed": (
+        'Section 1 is modified so that (a) information disclosed in written or other '
+        'tangible form is Confidential Information only if the Disclosing Party marks '
+        'it "confidential", "proprietary", or the like when disclosing it, and (b) '
+        'information disclosed orally or visually is Confidential Information only if '
+        'the Disclosing Party identifies it as confidential when disclosing it and '
+        'confirms that in writing within 30 days. This change does not affect the '
+        "existence and status of the parties' discussions or information on the "
+        'Cover Page.'),
+    "affiliate_sharing": (
+        'Section 2 is modified so that the representatives to whom a Receiving Party '
+        'may disclose Confidential Information include its affiliates, on the same '
+        'conditions that apply to its other representatives. An "affiliate" is an '
+        'entity that controls, is controlled by, or is under common control with the '
+        'Receiving Party.'),
+    "residuals": (
+        'The following is added at the end of Section 3: "This MNDA does not restrict '
+        'a Receiving Party from using Residuals, as long as it otherwise complies with '
+        "this MNDA. 'Residuals' means information in intangible form that a person "
+        'with authorized access to Confidential Information retains in unaided memory, '
+        'without deliberately memorizing it and without referring to the Confidential '
+        'Information. This sentence grants no license under any patent or copyright."'),
+}
+
+
+def change_list(terms):
+    """The agreed changes to the Standard Terms, in section order."""
+    out = []
+    if terms.get("marking_requirement") in CHANGE_TEXT:
+        out.append(CHANGE_TEXT[terms["marking_requirement"]])
+    if terms.get("affiliate_sharing"):
+        out.append(CHANGE_TEXT["affiliate_sharing"])
+    if terms.get("residuals"):
+        out.append(CHANGE_TEXT["residuals"])
+    return out
+
+
 EXIT = {"AGREED": 0, "AGREED_PENDING_INFO": 0, "CONFLICTS": 1,
         "OUT_OF_PROTOCOL": 2, "VERSION_MISMATCH": 3}
 
@@ -222,16 +269,7 @@ def render(terms, digest, status):
         conf = (f"{terms['confidentiality_years']} year(s) from {start}; trade secrets "
                 "stay protected for as long as they remain trade secrets under applicable law")
 
-    mods = []
-    if terms["marking_requirement"] == "written-marked":
-        mods.append("Written Confidential Information must be marked confidential")
-    elif terms["marking_requirement"] == "written-marked-oral-confirmed":
-        mods.append("Written Confidential Information must be marked confidential, and "
-                    "oral disclosures must be confirmed in writing")
-    if terms["residuals"]:
-        mods.append("Residuals clause included")
-    if terms["affiliate_sharing"]:
-        mods.append("Each party may share Confidential Information with its affiliates")
+    mods = change_list(terms)
 
     venue = terms["venue"]
     lines = [
@@ -258,7 +296,7 @@ def render(terms, digest, status):
         "| Jurisdiction | "
         + (f"State and federal courts located in {venue}" if venue else "OPEN: to be agreed")
         + " |",
-        f"| Modifications | {'; '.join(mods) if mods else 'None'} |",
+        f"| Changes to Standard Terms | {' '.join(mods) if mods else 'None'} |",
         "",
         f"Protocol version: {terms['protocol_version']}",
         "",

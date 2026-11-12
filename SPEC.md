@@ -146,6 +146,29 @@ than two parties; individuals as parties.
   `marking_requirement` on both sides means `none`.
 - **Values off the closed lists** are ignored and noted in the result.
 
+## Standard change text
+
+When a variable changes the form's Standard Terms, the Cover Page's "Changes to
+Standard Terms" field carries the fixed wording below, in this order. The
+wording is part of the protocol, so every implementation writes the same
+words. If none applies, the field reads "None."
+
+**`marking_requirement: written-marked`**
+
+> Section 1 is modified so that information disclosed in written or other tangible form is Confidential Information only if the Disclosing Party marks it "confidential", "proprietary", or the like when disclosing it. This change does not affect information disclosed orally or visually, the existence and status of the parties' discussions, or information on the Cover Page.
+
+**`marking_requirement: written-marked-oral-confirmed`**
+
+> Section 1 is modified so that (a) information disclosed in written or other tangible form is Confidential Information only if the Disclosing Party marks it "confidential", "proprietary", or the like when disclosing it, and (b) information disclosed orally or visually is Confidential Information only if the Disclosing Party identifies it as confidential when disclosing it and confirms that in writing within 30 days. This change does not affect the existence and status of the parties' discussions or information on the Cover Page.
+
+**`affiliate_sharing` included**
+
+> Section 2 is modified so that the representatives to whom a Receiving Party may disclose Confidential Information include its affiliates, on the same conditions that apply to its other representatives. An "affiliate" is an entity that controls, is controlled by, or is under common control with the Receiving Party.
+
+**`residuals` included**
+
+> The following is added at the end of Section 3: "This MNDA does not restrict a Receiving Party from using Residuals, as long as it otherwise complies with this MNDA. 'Residuals' means information in intangible form that a person with authorized access to Confidential Information retains in unaided memory, without deliberately memorizing it and without referring to the Confidential Information. This sentence grants no license under any patent or copyright."
+
 ## Outcomes
 
 - `AGREED`: terms match and all party facts are present. A cover page is
@@ -173,6 +196,13 @@ than two parties; individuals as parties.
   files and purpose get the same hash.
 - **Versioning.** Elements move between layers only in a new protocol
   version.
+- **Cover Page wording.** The signable Cover Page uses the form's own field
+  text. Only the blanks are filled, and changes use the standard change
+  text above.
+- **Confidentiality of the completed Cover Page.** Under the form, the
+  information on a completed Cover Page is itself Confidential Information.
+  A company may publish its own `nda-handshake.md`, but not a completed
+  Cover Page.
 
 ## Safety rules
 
@@ -188,10 +218,17 @@ than two parties; individuals as parties.
 - `confidentiality_starts` is a new variable.
 - Open-ended NDA terms and perpetual confidentiality are listed as excluded.
 
+## Revision 0.3.1
+
+No change to the variables or the matching rules. Adds the standard change
+text, the two conventions on Cover Page wording and confidentiality, and
+published expected results for the example files
+(`examples/expected-results.json`).
+
 ## Not yet built
 
 - Agent negotiation of conflicts
 - Hosting at a well-known URL and domain-based identity checks
 - An MCP server wrapping the matcher
-- Filling the official Word cover page and sending for e-signature
+- Sending the Cover Page for e-signature
 - Support for other standard forms
