@@ -1,0 +1,91 @@
+{
+  "manifest_version": "0.4",
+  "name": "nda-handshake",
+  "display_name": "NDA Handshake",
+  "version": "0.10.0",
+  "description": "Put a standard mutual NDA in place with another company by a sealed exchange of three emails.",
+  "long_description": "NDA Handshake lets two companies' assistants settle a standard mutual NDA without trading redlines. Each company keeps a small file with its details and its NDA positions. The assistants exchange three emails under seal, so neither side sees the other's positions before fixing its own, and both work out the same NDA. Everything runs on your own computer. Nothing is fetched from the network, nothing is sent without you, and nothing is signed for you.",
+  "author": {
+    "name": "Ultra Vires Labs LLC",
+    "url": "https://github.com/Ivolver/NDA-Handshake"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Ivolver/NDA-Handshake"
+  },
+  "homepage": "https://github.com/Ivolver/NDA-Handshake",
+  "documentation": "https://github.com/Ivolver/NDA-Handshake#readme",
+  "support": "https://github.com/Ivolver/NDA-Handshake/issues",
+  "server": {
+    "type": "uv",
+    "entry_point": "mcp_server.py",
+    "mcp_config": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "${__dirname}",
+        "mcp_server.py"
+      ],
+      "env": {
+        "NDA_HANDSHAKE_STORAGE": "${user_config.storage_folder}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "handshake",
+      "description": "The front door: starts a handshake, or works out and runs the next step of a sealed exchange from an email."
+    },
+    {
+      "name": "setup",
+      "description": "Chooses the folder for the company's own file and completed NDAs."
+    },
+    {
+      "name": "draft_file",
+      "description": "Writes the company's own nda-handshake.md from its facts and NDA positions."
+    },
+    {
+      "name": "check_file",
+      "description": "Checks one nda-handshake.md and reports anything missing or not allowed."
+    },
+    {
+      "name": "fingerprint",
+      "description": "Returns the fingerprint of an nda-handshake.md."
+    },
+    {
+      "name": "match",
+      "description": "Matches two nda-handshake.md files and returns the agreed terms or the conflicts."
+    },
+    {
+      "name": "make_document",
+      "description": "Writes the signable Mutual NDA as a Word document for an agreed result."
+    }
+  ],
+  "user_config": {
+    "storage_folder": {
+      "type": "directory",
+      "title": "Storage folder",
+      "description": "Where to keep your company's NDA Handshake file and your completed NDAs.",
+      "required": true,
+      "default": "${DOCUMENTS}/NDA Handshake"
+    }
+  },
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ],
+    "runtimes": {
+      "python": ">=3.10"
+    }
+  },
+  "keywords": [
+    "nda",
+    "legal",
+    "contracts",
+    "confidentiality"
+  ],
+  "license": "Apache-2.0"
+}

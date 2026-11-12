@@ -175,16 +175,41 @@ returns only the text it wrote itself. Every
 output is an unsigned draft that a qualified person should review before
 anyone signs anything.
 
-Requires Python 3.10 or newer and the packages in `requirements.txt`:
+### Install with one click
+
+Download `nda-handshake-<version>.mcpb` from the project's
+[Releases page](https://github.com/Ivolver/NDA-Handshake/releases) and open
+it, or drag it into the Extensions settings of Claude Desktop. The app
+shows what the connector does, asks which folder should hold your
+company's file and your completed NDAs, and installs it. The app manages
+Python and the packages the connector needs; you do not need to install
+anything else or use a terminal.
+
+Install it only from that Releases page or from a connector directory you
+already trust. Do not install it from a link in an email, including an NDA
+Handshake invitation.
+
+### Install by hand
+
+For other assistants, or to run from the source. Requires Python 3.10 or
+newer and the packages in `requirements.txt`:
 
     pip install -r requirements.txt
 
-To add the server to Claude Desktop, open the developer settings
-(`Claude > Settings > Developer > Edit Config`) and add an `nda-handshake`
-entry under `mcpServers`, pointing `command` at a Python with the three
-packages installed and `args` at `mcp_server.py` in this folder. The
+To add the server to Claude Desktop this way, add an `nda-handshake` entry
+under `mcpServers` in its config file, pointing `command` at a Python with
+the packages installed and `args` at `mcp_server.py` in this folder. The
 config file lives at `~/Library/Application Support/Claude/claude_desktop_config.json`
-on macOS. Restart Claude Desktop to pick up the change.
+on macOS. Restart Claude Desktop to pick up the change. An assistant that
+cannot add connectors to its own tools can still take part by running
+`mcp_server.py` from a command line and calling its tools.
+
+### Build the one-click bundle
+
+The bundle is described by `manifest.json`, `pyproject.toml` and
+`.mcpbignore`. To build it with the official packaging tool:
+
+    npx @anthropic-ai/mcpb pack . dist/nda-handshake-<version>.mcpb
 
 ## Before real use
 

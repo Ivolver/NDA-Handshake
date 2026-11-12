@@ -100,7 +100,23 @@ def save_settings(storage_folder):
     return folder
 
 
+def installer_storage_folder():
+    """The storage folder chosen when the connector was installed, if any.
+
+    A one-click install asks the person for the folder and passes it in the
+    NDA_HANDSHAKE_STORAGE environment variable.
+    """
+    folder = (os.environ.get("NDA_HANDSHAKE_STORAGE") or "").strip()
+    if not folder or "${" in folder:
+        return None
+    return os.path.abspath(os.path.expanduser(folder))
+
+
 def storage_folder():
+    chosen = installer_storage_folder()
+    if chosen:
+        os.makedirs(chosen, exist_ok=True)
+        return chosen
     folder = read_settings().get("storage_folder")
     return folder if isinstance(folder, str) and folder else None
 

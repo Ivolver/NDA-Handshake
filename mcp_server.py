@@ -138,11 +138,21 @@ def setup(storage_folder: str = "") -> dict[str, Any]:
     with no folder to see the current settings. The folder is on the
     computer where this connector runs, so no folder needs to be attached
     to the chat. Each deal is saved in its own subfolder under "deals".
+
+    If the connector was installed with one click, the person already
+    chose the folder during installation and this step is not needed.
     """
+    installed = sealed.installer_storage_folder()
     if storage_folder:
         if "://" in storage_folder:
             raise ToolError("storage_folder must be a local folder.")
-        sealed.save_settings(storage_folder)
+        wanted = os.path.abspath(os.path.expanduser(storage_folder))
+        if installed and wanted != installed:
+            raise ToolError(
+                "The storage folder was chosen when the connector was installed "
+                f"({installed}). To change it, open the connector's settings in the app.")
+        if not installed:
+            sealed.save_settings(storage_folder)
     folder = sealed.storage_folder()
     own = sealed.own_file_path()
     return {"storage_folder": folder, "own_file": own,

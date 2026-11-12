@@ -1,0 +1,19 @@
+# Left out of the one-click bundle. The bundle holds only what the
+# connector needs to run.
+.git/
+.github/
+.gitignore
+.venv/
+__pycache__/
+*.pyc
+out/
+dist/
+*.mcpb
+examples/
+schema/
+check_examples.py
+check_sealed.py
+test_mcp_tools.py
+requirements.txt
+CONTRIBUTING.md
+SECURITY.md
