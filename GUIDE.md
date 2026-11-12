@@ -166,8 +166,13 @@ forever; more than two parties; or an individual as a party.
 
 1. Read the file back and confirm every position is one you are willing to
    disclose and to sign.
-2. Fix the file before you see the other side's. Either publish it at a
-   stable address, or exchange fingerprints first and files second.
+2. Fix the file before you see the other side's. Whoever sends a file
+   first shows its positions to the other side, who could then shape its
+   own file around them. To avoid that, exchange fingerprints first and
+   files second, and put a random line in the body of your file before
+   taking its fingerprint so the fingerprint cannot be guessed. You may
+   instead publish the file at a stable address, accepting that anyone
+   can read your positions.
 3. Do not publish a completed Cover Page. Under the form, its contents are
    confidential.
 4. Have a qualified person review the final document before anyone signs.

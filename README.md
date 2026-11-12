@@ -5,6 +5,10 @@ Status: experimental. Protocol v0.5.
 Two companies exchange `nda-handshake.md` files. A matcher works out the NDA terms
 both can accept and drafts the cover page. Humans sign.
 
+A company that sends its file first shows its positions to the other side.
+`SPEC.md` explains how to exchange files fairly today, and a sealed exchange
+procedure that builds this in is planned.
+
 See `SPEC.md` for the protocol: the file format, the closed list of
 negotiable terms, what is excluded, and the matching rules. When writing
 your own file, start with `GUIDE.md`, which walks through each of the nine

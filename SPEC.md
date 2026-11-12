@@ -222,15 +222,22 @@ words. If none applies, the field reads "None."
 ## Conventions
 
 - **File commitment.** A company's file must be fixed before it sees the
-  other side's file, so neither can narrow its range after reading the
-  other's. Either publish the file in advance at a stable address
-  (recommended), or exchange file fingerprints first and the files second.
+  other side's file, so neither can tailor its positions after reading the
+  other's. A company that sends its file first shows its positions to the
+  other side. To avoid that, exchange file fingerprints first and the files
+  second. A fingerprint hides a file only if the file contains something
+  that cannot be guessed: the positions come from short closed lists, so a
+  fingerprint of the positions alone could be found by trying the
+  combinations. Put a random line in the body of the file before taking
+  its fingerprint. A company may instead publish its file at a stable
+  address, accepting that anyone can then read its positions. A sealed
+  exchange procedure that builds this in is planned (see "Not yet built").
   The matcher prints a file's SHA-256 fingerprint and records both
   fingerprints in its result. The fingerprint is taken after line endings
   are normalized to LF, so a file keeps the same fingerprint whether it is
   read from disk or passed through email.
 - **Neutral matching.** The rules do not favor either side. Leverage is
-  expressed only through how narrow a range a company publishes.
+  expressed only through how narrow a range a company states.
 - **Record of agreement.** The agreed terms are serialized in a fixed order
   and hashed with SHA-256. Both sides running the matcher on the same two
   files and purpose get the same hash.
@@ -293,8 +300,15 @@ published expected results for the example files
 
 ## Not yet built
 
-- Agent negotiation of conflicts
+- Sealed exchange, planned as the only way a handshake is run: the inviting
+  company first sends only a fingerprint of its file, the other company
+  replies with its file, and the inviting company then reveals its own.
+  Neither side can tailor its positions to the other's. Until then, a
+  company that sends its file first shows its positions to the other side.
+- Conflict handling: when a handshake fails, each company's assistant
+  reports the failed terms to its own human and suggests a resolution.
+  Assistants do not bargain with each other.
+- Automatic execution without a human signature, opt-in per company
 - Hosting at a well-known URL and domain-based identity checks
-- An MCP server wrapping the matcher
 - Sending the Cover Page for e-signature
 - Support for other standard forms
