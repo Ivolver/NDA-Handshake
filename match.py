@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""company.md NDA matcher, v0.1
+"""NDA Handshake matcher, protocol v0.2
 
 Reads two company.md files, intersects their NDA positions, and writes
 agreed terms (or a list of conflicts) plus a draft cover page.
@@ -17,9 +17,35 @@ import sys
 
 import yaml
 
+PROTOCOL_VERSIONS = {"0.2"}
 MAX_LEN = 200
-RIDERS = ["residuals", "affiliate_sharing", "non_solicit"]
-RIDER_POSITIONS = {"require", "accept", "reject"}
+
+# The closed lists. Anything not on these lists is outside the protocol.
+FORMS = ["common-paper-mnda-1.0"]
+MARKING = ["none", "written-marked", "written-marked-oral-confirmed"]
+RANGES = {"nda_term_years": (1, 5), "confidentiality_years": (1, 10)}
+TOGGLES = ["trade_secret_tail", "residuals", "affiliate_sharing",
+           "existence_of_talks_confidential"]
+TOGGLE_POSITIONS = {"require", "accept", "reject"}
+US_STATES = [
+    "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado",
+    "Connecticut", "Delaware", "District of Columbia", "Florida", "Georgia",
+    "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky",
+    "Louisiana", "Maine", "Maryland", "Massachusetts", "Michigan", "Minnesota",
+    "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire",
+    "New Jersey", "New Mexico", "New York", "North Carolina", "North Dakota",
+    "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island",
+    "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah", "Vermont",
+    "Virginia", "Washington", "West Virginia", "Wisconsin", "Wyoming",
+]
+
+EXIT = {"AGREED": 0, "AGREED_PENDING_INFO": 0, "CONFLICTS": 1,
+        "OUT_OF_PROTOCOL": 2, "VERSION_MISMATCH": 3}
+
+
+def fingerprint(path):
+    with open(path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
 
 
 def load(path):
@@ -35,7 +61,7 @@ def load(path):
 
 def clean(value):
     """Return a short single-line string, or None if missing or a TODO."""
-    if value is None:
+    if value is None or isinstance(value, bool):
         return None
     if not isinstance(value, (str, int, float)):
         return None
@@ -60,7 +86,9 @@ def pick_entity(data, entity_id, label, missing):
     if chosen is None:
         if entity_id:
             sys.exit(f"{label}: no entity with id '{entity_id}'")
-        chosen = entities[0]
+        chosen = next((e for e in entities if isinstance(e, dict)), None)
+        if chosen is None:
+            sys.exit(f"{label}: no usable entity")
     sig = data.get("signatory") if isinstance(data.get("signatory"), dict) else {}
     notices = data.get("notices") if isinstance(data.get("notices"), dict) else {}
     party = {
@@ -78,63 +106,100 @@ def pick_entity(data, entity_id, label, missing):
     return party
 
 
-def match_range(name, a, b, conflicts):
-    try:
-        lo = max(int(a["min"]), int(b["min"]))
-        hi = min(int(a["max"]), int(b["max"]))
-        target = (int(a["prefer"]) + int(b["prefer"])) / 2
-    except (KeyError, TypeError, ValueError):
-        conflicts.append(f"{name}: one side has no valid min / max / prefer")
-        return None
-    if lo > hi:
-        conflicts.append(
-            f"{name}: ranges do not overlap "
-            f"({a['min']} to {a['max']} vs {b['min']} to {b['max']})"
-        )
-        return None
-    # Midpoint of the two preferences, rounded half up, kept inside the overlap.
-    return max(lo, min(hi, int(target + 0.5)))
+def ranked(pos, allowed, name, label, notes):
+    """Preferred value first, then the accept list, limited to allowed values.
 
-
-def ranked(pos):
-    """Preferred value first, then the rest of the accept list, de-duplicated."""
+    Returns None if the side is silent on this element.
+    """
     if not isinstance(pos, dict):
-        return []
-    items = [pos.get("prefer")] + list(pos.get("accept") or [])
+        return None
+    canon = {a.lower(): a for a in allowed}
     out = []
-    for item in items:
+    for item in [pos.get("prefer")] + list(pos.get("accept") or []):
         s = clean(item)
-        if s and s.lower() not in [o.lower() for o in out]:
-            out.append(s)
+        if not s:
+            continue
+        if s.lower() not in canon:
+            notes.append(f"{label}: '{s}' is not an allowed value for {name}; ignored")
+            continue
+        if canon[s.lower()] not in out:
+            out.append(canon[s.lower()])
     return out
 
 
-def match_choice(name, a, b, conflicts):
-    ra, rb = ranked(a), ranked(b)
-    lower_b = [x.lower() for x in rb]
-    common = [x for x in ra if x.lower() in lower_b]
+def match_choice(name, a, b, allowed, conflicts, open_items, notes):
+    ra = ranked(a, allowed, name, "Party A", notes)
+    rb = ranked(b, allowed, name, "Party B", notes)
+    if ra is None and rb is None:
+        open_items.append(f"{name}: neither side states a position")
+        return None
+    # A silent side accepts any allowed value, so the other side's top choice wins.
+    if ra is None:
+        ra = list(rb)
+    if rb is None:
+        rb = list(ra)
+    common = [x for x in ra if x in rb]
     if not common:
         conflicts.append(f"{name}: no common option ({ra} vs {rb})")
         return None
     # Lowest combined rank wins; alphabetical order breaks ties.
-    return min(common, key=lambda x: (ra.index(x) + lower_b.index(x.lower()), x))
+    return min(common, key=lambda x: (ra.index(x) + rb.index(x), x))
 
 
-def match_rider(name, a, b, conflicts):
-    pa = clean(a) or "accept"
-    pb = clean(b) or "accept"
-    if pa not in RIDER_POSITIONS or pb not in RIDER_POSITIONS:
-        conflicts.append(f"rider {name}: position must be require, accept or reject")
+def read_range(pos, bounds, name, label, notes):
+    """Return (min, max, prefer) inside the protocol bounds, or None if silent."""
+    if not isinstance(pos, dict):
+        return None
+    lo_b, hi_b = bounds
+    try:
+        lo, hi = int(pos["min"]), int(pos["max"])
+        prefer = int(pos.get("prefer", lo))
+    except (KeyError, TypeError, ValueError):
+        notes.append(f"{label}: {name} needs whole-number min and max; treated as silent")
+        return None
+    if lo < lo_b or hi > hi_b:
+        notes.append(f"{label}: {name} limited to the protocol range {lo_b} to {hi_b}")
+    lo, hi = max(lo, lo_b), min(hi, hi_b)
+    return lo, hi, prefer
+
+
+def match_range(name, a, b, conflicts, open_items, notes):
+    bounds = RANGES[name]
+    pa = read_range(a, bounds, name, "Party A", notes)
+    pb = read_range(b, bounds, name, "Party B", notes)
+    if pa is None and pb is None:
+        open_items.append(f"{name}: neither side states a position")
+        return None
+    if pa is None:
+        pa = (bounds[0], bounds[1], pb[2])
+    if pb is None:
+        pb = (bounds[0], bounds[1], pa[2])
+    lo, hi = max(pa[0], pb[0]), min(pa[1], pb[1])
+    if lo > hi:
+        conflicts.append(
+            f"{name}: ranges do not overlap ({pa[0]} to {pa[1]} vs {pb[0]} to {pb[1]})")
+        return None
+    # Midpoint of the two preferences, rounded half up, kept inside the overlap.
+    target = (pa[2] + pb[2]) / 2
+    return max(lo, min(hi, int(target + 0.5)))
+
+
+def match_toggle(name, a, b, conflicts, notes):
+    """Included only if one side requires it and the other does not reject it."""
+    positions = []
+    for label, raw in (("Party A", a), ("Party B", b)):
+        p = (clean(raw) or "accept").lower()
+        if p not in TOGGLE_POSITIONS:
+            notes.append(f"{label}: {name} must be require, accept or reject; treated as accept")
+            p = "accept"
+        positions.append(p)
+    if set(positions) == {"require", "reject"}:
+        conflicts.append(f"{name}: one side requires it, the other rejects it")
         return False
-    if {pa, pb} == {"require", "reject"}:
-        conflicts.append(f"rider {name}: one side requires it, the other rejects it")
-        return False
-    return "require" in (pa, pb)
+    return "require" in positions
 
 
 def render(terms, digest, status):
-    p1, p2 = terms["parties"]
-
     def party_block(p):
         return (
             f"**{p['legal_name'] or 'MISSING'}**, a {p['formed_in'] or 'MISSING'} "
@@ -145,32 +210,54 @@ def render(terms, digest, status):
             f"{p['signatory_title'] or 'MISSING'}\n"
         )
 
-    riders = terms["riders_included"]
+    def show(value, suffix=""):
+        return f"{value}{suffix}" if value is not None else "OPEN: to be agreed"
+
+    conf = show(terms["confidentiality_years"], " year(s) from Effective Date")
+    if terms["trade_secret_tail"]:
+        conf += "; trade secrets stay protected for as long as they remain trade secrets"
+
+    mods = []
+    if terms["marking_requirement"] == "written-marked":
+        mods.append("Written Confidential Information must be marked confidential")
+    elif terms["marking_requirement"] == "written-marked-oral-confirmed":
+        mods.append("Written Confidential Information must be marked confidential, and "
+                    "oral disclosures must be confirmed in writing")
+    if terms["residuals"]:
+        mods.append("Residuals clause included")
+    if terms["affiliate_sharing"]:
+        mods.append("Each party may share Confidential Information with its affiliates")
+    if terms["existence_of_talks_confidential"]:
+        mods.append("The existence of the parties' discussions is Confidential Information")
+
+    venue = terms["venue"]
     lines = [
         "# Draft NDA Cover Page",
         "",
-        f"Status: {status}. This is an unsigned draft produced by the company.md "
+        f"Status: {status}. This is an unsigned draft produced by the NDA Handshake "
         "matcher. It binds no one until a human signs it.",
         "",
-        f"Form: {terms['form']}",
+        f"Form: {show(terms['form'])} (mutual)",
         "",
         "## Parties",
         "",
-        party_block(p1),
-        party_block(p2),
+        party_block(terms["parties"][0]),
+        party_block(terms["parties"][1]),
         "## Key Terms",
         "",
         "| Term | Value |",
         "|---|---|",
-        f"| Type | {terms['type']} |",
         f"| Purpose | {terms['purpose'] or 'MISSING'} |",
         "| Effective Date | Date of last signature |",
-        f"| MNDA Term | {terms['nda_term_years']} year(s) from Effective Date |",
-        f"| Term of Confidentiality | {terms['confidentiality_years']} year(s) "
-        "from Effective Date |",
-        f"| Governing Law | {terms['governing_law']} |",
-        f"| Jurisdiction | State and federal courts located in {terms['venue']} |",
-        f"| Modifications | {', '.join(riders) if riders else 'None'} |",
+        f"| MNDA Term | {show(terms['nda_term_years'], ' year(s) from Effective Date')} |",
+        f"| Term of Confidentiality | {conf} |",
+        f"| Governing Law | {show(terms['governing_law'])} |",
+        "| Jurisdiction | "
+        + (f"State and federal courts located in {venue}" if venue else "OPEN: to be agreed")
+        + " |",
+        f"| Modifications | {'; '.join(mods) if mods else 'None'} |",
+        "",
+        f"Protocol version: {terms['protocol_version']}",
         "",
         f"Terms hash (SHA-256): `{digest}`",
         "",
@@ -178,75 +265,118 @@ def render(terms, digest, status):
     return "\n".join(lines)
 
 
+def finish(out_dir, result, cover=None):
+    os.makedirs(out_dir, exist_ok=True)
+    with open(os.path.join(out_dir, "result.json"), "w", encoding="utf-8") as f:
+        json.dump(result, f, indent=2)
+    if cover:
+        with open(os.path.join(out_dir, "cover-page.md"), "w", encoding="utf-8") as f:
+            f.write(cover)
+    sys.exit(EXIT[result["status"]])
+
+
 def main():
     ap = argparse.ArgumentParser(description="Match NDA terms from two company.md files")
-    ap.add_argument("file_a")
-    ap.add_argument("file_b")
-    ap.add_argument("--purpose", required=True, help="Why the parties are sharing information")
-    ap.add_argument("--entity-a", help="Entity id to use from file A (default entity if omitted)")
-    ap.add_argument("--entity-b", help="Entity id to use from file B (default entity if omitted)")
+    ap.add_argument("files", nargs="*", help="Two company.md files")
+    ap.add_argument("--purpose", help="Why the parties are sharing information")
+    ap.add_argument("--entity-a", help="Entity id to use from the first file")
+    ap.add_argument("--entity-b", help="Entity id to use from the second file")
     ap.add_argument("--out", default="out", help="Output folder")
+    ap.add_argument("--fingerprint", metavar="FILE",
+                    help="Print the SHA-256 fingerprint of one company.md and exit")
     args = ap.parse_args()
 
-    a, b = load(args.file_a), load(args.file_b)
+    if args.fingerprint:
+        print(fingerprint(args.fingerprint))
+        return
+    if len(args.files) != 2 or not args.purpose:
+        ap.error("give two company.md files and --purpose")
+
+    file_a, file_b = args.files
+    a, b = load(file_a), load(file_b)
+    prints = sorted([fingerprint(file_a), fingerprint(file_b)])
+    base = {"file_fingerprints": prints}
+
+    # 1. Both files must follow a protocol version this matcher supports.
+    va, vb = clean(a.get("nda_handshake")), clean(b.get("nda_handshake"))
+    if va != vb or va not in PROTOCOL_VERSIONS:
+        print("Status: VERSION_MISMATCH")
+        print(f"  Party A declares {va}, Party B declares {vb}; "
+              f"this matcher supports {sorted(PROTOCOL_VERSIONS)}")
+        finish(args.out, dict(base, status="VERSION_MISMATCH",
+                              declared_versions=[va, vb]))
+
     na = a.get("nda") if isinstance(a.get("nda"), dict) else {}
     nb = b.get("nda") if isinstance(b.get("nda"), dict) else {}
-    conflicts, missing = [], []
 
+    # 2. Either side can declare that it needs terms outside the protocol.
+    flagged = [label for label, n in (("Party A", na), ("Party B", nb))
+               if n.get("custom_terms_required") is True]
+    if flagged:
+        print("Status: OUT_OF_PROTOCOL")
+        for label in flagged:
+            print(f"  {label} requires custom terms; negotiate this NDA the ordinary way")
+        finish(args.out, dict(base, status="OUT_OF_PROTOCOL", flagged_by=flagged))
+
+    # 3. Match the closed list of variables.
+    conflicts, missing, open_items, notes = [], [], [], []
     terms = {
+        "protocol_version": va,
         "parties": [
             pick_entity(a, args.entity_a, "Party A", missing),
             pick_entity(b, args.entity_b, "Party B", missing),
         ],
         "purpose": clean(args.purpose),
-        "form": match_choice("form", na.get("form"), nb.get("form"), conflicts),
-        "type": match_choice("type", na.get("type"), nb.get("type"), conflicts),
-        "nda_term_years": match_range(
-            "nda_term_years", na.get("nda_term_years") or {}, nb.get("nda_term_years") or {}, conflicts),
+        "direction": "mutual",
+        "form": match_choice("form", na.get("form"), nb.get("form"), FORMS,
+                             conflicts, open_items, notes),
+        "nda_term_years": match_range("nda_term_years", na.get("nda_term_years"),
+                                      nb.get("nda_term_years"), conflicts, open_items, notes),
         "confidentiality_years": match_range(
-            "confidentiality_years", na.get("confidentiality_years") or {},
-            nb.get("confidentiality_years") or {}, conflicts),
-        "governing_law": match_choice(
-            "governing_law", na.get("governing_law"), nb.get("governing_law"), conflicts),
-        "venue": match_choice("venue", na.get("venue"), nb.get("venue"), conflicts),
+            "confidentiality_years", na.get("confidentiality_years"),
+            nb.get("confidentiality_years"), conflicts, open_items, notes),
+        "governing_law": match_choice("governing_law", na.get("governing_law"),
+                                      nb.get("governing_law"), US_STATES,
+                                      conflicts, open_items, notes),
+        "venue": match_choice("venue", na.get("venue"), nb.get("venue"), US_STATES,
+                              conflicts, open_items, notes),
+        "marking_requirement": match_choice(
+            "marking_requirement", na.get("marking_requirement"),
+            nb.get("marking_requirement"), MARKING, conflicts, [], notes) or "none",
     }
+    for t in TOGGLES:
+        terms[t] = match_toggle(t, na.get(t), nb.get(t), conflicts, notes)
     # Fixed party order, so both sides get the same hash whichever file is listed first.
     terms["parties"].sort(key=lambda p: (p["legal_name"] or "").lower())
-    ra = na.get("riders") if isinstance(na.get("riders"), dict) else {}
-    rb = nb.get("riders") if isinstance(nb.get("riders"), dict) else {}
-    terms["riders_included"] = [
-        r for r in RIDERS if match_rider(r, ra.get(r), rb.get(r), conflicts)
-    ]
 
     if conflicts:
         status = "CONFLICTS"
-    elif missing:
+    elif missing or open_items:
         status = "AGREED_PENDING_INFO"
     else:
         status = "AGREED"
 
     canonical = json.dumps(terms, sort_keys=True, separators=(",", ":"))
     digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-
-    os.makedirs(args.out, exist_ok=True)
-    result = {"status": status, "terms_hash": digest, "terms": terms,
-              "conflicts": conflicts, "missing_info": missing}
-    with open(os.path.join(args.out, "result.json"), "w", encoding="utf-8") as f:
-        json.dump(result, f, indent=2)
+    result = dict(base, status=status, terms_hash=digest, terms=terms,
+                  conflicts=conflicts, missing_info=missing,
+                  open_items=open_items, notes=notes)
 
     print(f"Status: {status}")
     for c in conflicts:
         print(f"  CONFLICT  {c}")
+    for o in open_items:
+        print(f"  OPEN      {o}")
     for m in missing:
         print(f"  MISSING   {m}")
-    if not conflicts:
-        with open(os.path.join(args.out, "cover-page.md"), "w", encoding="utf-8") as f:
-            f.write(render(terms, digest, status))
-        print(f"Terms hash: {digest}")
-        print(f"Wrote {args.out}/cover-page.md and {args.out}/result.json")
-    else:
+    for n in notes:
+        print(f"  NOTE      {n}")
+    if conflicts:
         print(f"Wrote {args.out}/result.json (no cover page; a human resolves the conflicts)")
-    sys.exit(1 if conflicts else 0)
+        finish(args.out, result)
+    print(f"Terms hash: {digest}")
+    print(f"Wrote {args.out}/cover-page.md and {args.out}/result.json")
+    finish(args.out, result, render(terms, digest, status))
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 ---
-company_md: "0.1"
+nda_handshake: "0.2"
 
 company:
   name: Lakeside Example (fictional)
@@ -23,21 +23,21 @@ nda:
   form:
     prefer: common-paper-mnda-1.0
     accept: [common-paper-mnda-1.0]
-  type:
-    prefer: mutual
-    accept: [mutual, one-way]
   nda_term_years: {prefer: 1, min: 1, max: 3}
   confidentiality_years: {prefer: 3, min: 1, max: 5}
+  trade_secret_tail: accept
   governing_law:
     prefer: New York
     accept: [New York, Delaware]
   venue:
     prefer: New York
     accept: [New York, Delaware]
-  riders:
-    residuals: accept
-    affiliate_sharing: accept
-    non_solicit: reject
+  marking_requirement:
+    prefer: none
+    accept: [none]
+  residuals: accept
+  affiliate_sharing: require
+  existence_of_talks_confidential: accept
 ---
 
 # Lakeside Example LLC

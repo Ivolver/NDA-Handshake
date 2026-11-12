@@ -1,11 +1,12 @@
-# NDA Handshake (v0.1)
+# NDA Handshake (v0.2)
 
-Status: experimental, v0.1.
+Status: experimental, v0.2.
 
 Two companies exchange `company.md` files. A matcher works out the NDA terms
 both can accept and drafts the cover page. Humans sign.
 
-See `SPEC.md` for the file format and matching rules.
+See `SPEC.md` for the protocol: the file format, the closed list of
+negotiable terms, what is excluded, and the matching rules.
 
 ## Run it
 
@@ -17,14 +18,25 @@ Requires Python 3 and PyYAML (`pip install pyyaml`).
 
 Outputs in the `--out` folder:
 
-- `result.json`: status, agreed terms, conflicts, missing info, terms hash
-- `cover-page.md`: draft cover page (not written if there are conflicts)
+- `result.json`: status, agreed terms, conflicts, missing info, open items,
+  terms hash and file fingerprints
+- `cover-page.md`: draft cover page (not written unless terms are agreed)
 
-To see the conflict path:
+To see the conflict path (expected status `CONFLICTS`, four conflicts):
 
     python3 match.py examples/harbor-fictional/company.md examples/northwind-fictional/company.md \
         --purpose "Evaluating a potential business relationship" \
         --out out/harbor-northwind
+
+To see the out-of-protocol path (expected status `OUT_OF_PROTOCOL`):
+
+    python3 match.py examples/harbor-fictional/company.md examples/outlier-fictional/company.md \
+        --purpose "Evaluating a potential business relationship" \
+        --out out/harbor-outlier
+
+To print a file's fingerprint, for exchanging before the files themselves:
+
+    python3 match.py --fingerprint examples/harbor-fictional/company.md
 
 ## Before real use
 

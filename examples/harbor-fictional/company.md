@@ -1,5 +1,5 @@
 ---
-company_md: "0.1"
+nda_handshake: "0.2"
 
 company:
   name: Harbor Example (fictional)
@@ -21,24 +21,25 @@ notices:
   email: legal@harbor.example
 
 nda:
+  custom_terms_required: false
   form:
     prefer: common-paper-mnda-1.0
-    accept: [common-paper-mnda-1.0, bonterms-mnda-1.0]
-  type:
-    prefer: mutual
-    accept: [mutual]
+    accept: [common-paper-mnda-1.0]
   nda_term_years: {prefer: 1, min: 1, max: 2}
   confidentiality_years: {prefer: 2, min: 2, max: 5}
+  trade_secret_tail: require
   governing_law:
     prefer: Delaware
     accept: [Delaware, New York, Florida]
   venue:
     prefer: Delaware
     accept: [Delaware, New York, Florida]
-  riders:
-    residuals: reject
-    affiliate_sharing: accept
-    non_solicit: reject
+  marking_requirement:
+    prefer: none
+    accept: [none, written-marked]
+  residuals: reject
+  affiliate_sharing: accept
+  existence_of_talks_confidential: accept
 ---
 
 # Harbor Example LLC

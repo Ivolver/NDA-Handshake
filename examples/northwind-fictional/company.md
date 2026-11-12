@@ -1,8 +1,8 @@
 ---
-company_md: "0.1"
+nda_handshake: "0.2"
 
 company:
-  name: Northwind Example (fictional test counterparty)
+  name: Northwind Example (fictional)
 
 entities:
   - id: northwind
@@ -23,21 +23,21 @@ nda:
   form:
     prefer: common-paper-mnda-1.0
     accept: [common-paper-mnda-1.0]
-  type:
-    prefer: mutual
-    accept: [mutual]
   nda_term_years: {prefer: 2, min: 1, max: 3}
   confidentiality_years: {prefer: 7, min: 6, max: 10}
+  trade_secret_tail: accept
   governing_law:
     prefer: California
     accept: [California]
   venue:
     prefer: California
     accept: [California]
-  riders:
-    residuals: accept
-    affiliate_sharing: accept
-    non_solicit: require
+  marking_requirement:
+    prefer: none
+    accept: [none]
+  residuals: require
+  affiliate_sharing: accept
+  existence_of_talks_confidential: accept
 ---
 
 # Northwind Example Inc.
