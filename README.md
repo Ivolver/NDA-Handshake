@@ -1,6 +1,6 @@
-# NDA Handshake (v0.3)
+# NDA Handshake (protocol v0.4)
 
-Status: experimental, v0.3.
+Status: experimental. Protocol v0.4.
 
 Two companies exchange `nda-handshake.md` files. A matcher works out the NDA terms
 both can accept and drafts the cover page. Humans sign.
@@ -36,6 +36,16 @@ To see the out-of-protocol path (expected status `OUT_OF_PROTOCOL`):
         --purpose "Evaluating a potential business relationship" \
         --out out/harbor-outlier
 
+To see a principled tie-break (two New York companies tie between Delaware
+and New York, and the result is New York because both are formed there):
+
+    python3 match.py examples/lakeside-fictional/nda-handshake.md examples/midtown-fictional/nda-handshake.md \
+        --purpose "Evaluating a potential business relationship" \
+        --out out/lakeside-midtown
+
+Every result includes a `summary` showing, term by term, both sides'
+positions, the outcome and the rule that produced it.
+
 To print a file's fingerprint, for exchanging before the files themselves:
 
     python3 match.py --fingerprint examples/harbor-fictional/nda-handshake.md
@@ -50,7 +60,7 @@ Once a match returns `AGREED`, turn its result into a Word document
 This writes `mnda.docx` next to the result. It holds the Common Paper Cover
 Page filled in with the agreed terms, the Standard Terms attached for
 convenience, and a one-page handshake record that is not part of the
-agreement. Any other status produces no document.
+agreement. The record shows how each term was reached. Any other status produces no document.
 
 ## Check an implementation
 

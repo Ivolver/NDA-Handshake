@@ -1,4 +1,4 @@
-# NDA Handshake protocol: spec v0.3 (draft)
+# NDA Handshake protocol: spec v0.4 (draft)
 
 Copyright 2026 Ultra Vires Labs LLC. This specification is licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
 
@@ -39,7 +39,7 @@ An `nda-handshake.md` has two parts:
 ## Fields
 
 ### nda_handshake
-The protocol version the file follows, for example `"0.3"`.
+The protocol version the file follows, for example `"0.4"`.
 
 ### company
 - `name`: common name
@@ -131,8 +131,14 @@ than two parties; individuals as parties.
 
 - **Lists** (`form`, `confidentiality_starts`, `governing_law`, `venue`,
   `marking_requirement`): take the options both sides accept. If more than
-  one, the option with the best combined ranking wins. Ties break
-  alphabetically. No common option is a conflict.
+  one, the option with the best combined ranking wins. No common option is
+  a conflict.
+- **Ties between list options** are broken on principle where possible, and
+  arbitrarily only as a last resort. The steps apply in this order:
+  1. For `venue`: the tied option that matches the agreed governing law.
+  2. For `governing_law` and `venue`: the tied option that is the state in
+     which both parties are formed.
+  3. For every list: alphabetical order.
 - **Ranges** (`nda_term_years`, `confidentiality_years`): take the overlap
   of the two ranges, then the midpoint of the two preferences, rounded half
   up and kept inside the overlap. No overlap is a conflict.
@@ -194,6 +200,13 @@ words. If none applies, the field reads "None."
 - **Record of agreement.** The agreed terms are serialized in a fixed order
   and hashed with SHA-256. Both sides running the matcher on the same two
   files and purpose get the same hash.
+- **Summary of how terms were reached.** Alongside the terms, the matcher
+  reports for each variable both sides' positions, the result, and which
+  rule produced it. The outcome labels are: matched (both preferred it),
+  midpoint, best shared option, tie-break (with the reason), one side's
+  preference (the other was silent), required by one side, not included,
+  and form default. The summary is a record only. It is not part of the
+  agreed terms, the terms hash or the MNDA.
 - **Versioning.** Elements move between layers only in a new protocol
   version.
 - **Cover Page wording.** The signable Cover Page uses the form's own field
@@ -217,6 +230,13 @@ words. If none applies, the field reads "None."
   variables. The form already provides both, so they are in the fixed layer.
 - `confidentiality_starts` is a new variable.
 - Open-ended NDA terms and perpetual confidentiality are listed as excluded.
+
+## Changes from v0.3
+
+- Ties between list options are broken on principle before alphabetical
+  order: a venue tie follows the governing law, and a governing law or
+  venue tie goes to a state both parties are formed in.
+- The matcher reports a summary of how each term was reached.
 
 ## Revision 0.3.1
 

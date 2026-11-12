@@ -1,5 +1,5 @@
 ---
-nda_handshake: "0.3"
+nda_handshake: "0.4"
 
 company:
   name: Northwind Example (fictional)

@@ -32,6 +32,9 @@ def main():
             problems.append(f"status {got['status']}, expected {case['status']}")
         if "terms_hash" in case and got.get("terms_hash") != case["terms_hash"]:
             problems.append("terms hash differs")
+        for key in ("governing_law", "venue"):
+            if key in case and got.get("terms", {}).get(key) != case[key]:
+                problems.append(f"{key} {got.get('terms', {}).get(key)}, expected {case[key]}")
         if "conflicts" in case:
             got_names = sorted(c.split(":")[0] for c in got.get("conflicts", []))
             if got_names != sorted(case["conflicts"]):

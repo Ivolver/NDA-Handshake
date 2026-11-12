@@ -105,8 +105,11 @@ def match(file_a: str, file_b: str, purpose: str, out_dir: str) -> dict[str, Any
 
     Returns status (AGREED, AGREED_PENDING_INFO, CONFLICTS, OUT_OF_PROTOCOL,
     or VERSION_MISMATCH), the agreed terms, the list of conflicts, open
-    items and missing information, and a SHA-256 terms hash so both sides
-    can confirm they matched the same files. Writes result.json and (unless
+    items and missing information, a SHA-256 terms hash so both sides
+    can confirm they matched the same files, and a summary showing for each
+    term both sides' positions and the rule that produced the result
+    (matched, midpoint, best shared option, tie-break and so on). Writes
+    result.json and (unless
     the status is CONFLICTS, VERSION_MISMATCH or OUT_OF_PROTOCOL) a draft
     cover-page.md in out_dir.
 

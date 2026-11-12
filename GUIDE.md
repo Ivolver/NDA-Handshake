@@ -62,7 +62,7 @@ usual signer as the default.
 ## The nine choices
 
 ### 1. Standard form (`form`)
-Which standard NDA you will sign. Protocol v0.3 supports one: the Common
+Which standard NDA you will sign. Protocol v0.4 supports one: the Common
 Paper Mutual NDA, version 1.0. Read its Standard Terms once before you
 publish a file, because they apply to every NDA you sign this way.
 

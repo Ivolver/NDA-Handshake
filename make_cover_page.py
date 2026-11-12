@@ -60,7 +60,7 @@ def _el(tag, **attrs):
     return el
 
 
-def style_table(table, widths, rules=True):
+def style_table(table, widths, rules=True, pad=70):
     """Fixed column widths, no outer box, optional thin rules between rows."""
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
     table.autofit = False
@@ -85,7 +85,7 @@ def style_table(table, widths, rules=True):
                 borders.append(_el(f"w:{edge}", **{"w:val": "nil"}))
             tc_pr.append(borders)
             margins = _el("w:tcMar")
-            for edge, twips in (("top", "70"), ("bottom", "70"), ("left", "140"), ("right", "140")):
+            for edge, twips in (("top", str(pad)), ("bottom", str(pad)), ("left", "140"), ("right", "140")):
                 margins.append(_el(f"w:{edge}", **{"w:w": twips, "w:type": "dxa"}))
             tc_pr.append(margins)
 
@@ -129,15 +129,14 @@ def add_field(paragraph, instruction):
 
 
 def title(doc, text, page_break=False):
-    p = doc.add_paragraph()
+    """A section title in Word's own Heading 1 style, so navigation and screen readers see it."""
+    p = doc.add_paragraph(style="Heading 1")
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p.paragraph_format.page_break_before = page_break
+    p.paragraph_format.space_before = Pt(0)
     p.paragraph_format.space_after = Pt(10)
     p.paragraph_format.keep_with_next = True
-    run = p.add_run(text.upper())
-    run.bold = True
-    run.font.size = Pt(15)
-    run.font.name = SERIF
+    p.add_run(text.upper())
     return p
 
 
@@ -145,26 +144,109 @@ def party_line(p):
     return f"a {p['formed_in']} {p['entity_type']}"
 
 
-def signature_cell(cell, number, p):
-    def line(label, value="", bold=False, before=3):
-        para = tight(cell.add_paragraph(), before=before)
-        if label:
-            para.add_run(label).font.size = Pt(9.5)
-        run = para.add_run(value)
-        run.bold = bold
-        return para
+def signature_block(doc, parties):
+    """Two signature blocks side by side, one table row per line so they stay aligned."""
+    grey = RGBColor(0x55, 0x55, 0x55)
+    rows = [
+        ([f"PARTY {i}" for i in (1, 2)], dict(size=8.5, color=grey)),
+        ([p["legal_name"].upper() for p in parties], dict(bold=True)),
+        ([party_line(p) for p in parties], dict(size=9.5)),
+        (["Signature:  " + "_" * 22] * 2, dict(before=12)),
+        (["Print Name:  " + p["signatory_name"] for p in parties], {}),
+        (["Title:  " + p["signatory_title"] for p in parties], {}),
+        (["Notice Address:  " + p["notice_email"] for p in parties], {}),
+        (["Date:  " + "_" * 20] * 2, {}),
+    ]
+    table = doc.add_table(rows=0, cols=2)
+    for index, (texts, fmt) in enumerate(rows):
+        row = table.add_row()
+        row._tr.get_or_add_trPr().append(_el("w:cantSplit"))
+        for cell, text in zip(row.cells, texts):
+            para = tight(cell.paragraphs[0], before=fmt.get("before", 0))
+            # Keep the whole block on one page.
+            para.paragraph_format.keep_with_next = index < len(rows) - 1
+            run = para.add_run(text)
+            run.bold = fmt.get("bold", False)
+            if "size" in fmt:
+                run.font.size = Pt(fmt["size"])
+            if "color" in fmt:
+                run.font.color.rgb = fmt["color"]
+    style_table(table, [3.15, 3.15], rules=False, pad=28)
 
-    first = tight(cell.paragraphs[0])
-    run = first.add_run(f"PARTY {number}")
-    run.font.size = Pt(8.5)
-    run.font.color.rgb = RGBColor(0x55, 0x55, 0x55)
-    line("", p["legal_name"].upper(), bold=True, before=2)
-    line("", party_line(p), before=0).runs[0].font.size = Pt(9.5)
-    line("Signature:  ", "_" * 22, before=14)
-    line("Print Name:  ", p["signatory_name"])
-    line("Title:  ", p["signatory_title"])
-    line("Notice Address:  ", p["notice_email"])
-    line("Date:  ", "_" * 20)
+
+TERM_LABELS = {
+    "form": "Standard form",
+    "nda_term_years": "NDA term",
+    "confidentiality_years": "Confidentiality period",
+    "confidentiality_starts": "Period starts from",
+    "governing_law": "Governing law",
+    "venue": "Venue",
+    "marking_requirement": "Marking requirement",
+    "residuals": "Residuals clause",
+    "affiliate_sharing": "Affiliate sharing",
+}
+OUTCOME_LABELS = {
+    "MATCHED": "Matched",
+    "MIDPOINT": "Midpoint",
+    "BEST_SHARED": "Best shared option",
+    "TIE_BREAK": "Tie-break",
+    "ONE_SIDED": "One side's preference",
+    "REQUIRED": "Required by one side",
+    "NOT_INCLUDED": "Not included",
+    "FORM_DEFAULT": "Form default",
+}
+VALUE_LABELS = {
+    "common-paper-mnda-1.0": "Common Paper Mutual NDA v1.0",
+    "effective-date": "Effective Date",
+    "last-disclosure": "date of last disclosure",
+    "none": "no marking required",
+    "written-marked": "written material marked",
+    "written-marked-oral-confirmed": "written marked, oral confirmed",
+}
+
+
+def plain(text):
+    """Swap protocol keywords in a position or explanation for plain English."""
+    for key, label in sorted(VALUE_LABELS.items(), key=lambda kv: -len(kv[0])):
+        text = re.sub(rf"(?<![\w-]){re.escape(key)}(?![\w-])", label, text)
+    return text
+
+
+def result_text(entry):
+    value = entry["result"]
+    if isinstance(value, bool):
+        return "Included" if value else "Not included"
+    if entry["term"].endswith("_years"):
+        return f"{value} year(s)"
+    text = plain(str(value))
+    return text[0].upper() + text[1:]
+
+
+def summary_table(doc, summary):
+    """How each term was reached: both positions, the result and the rule applied."""
+    table = doc.add_table(rows=1, cols=5)
+    header = ["Term", summary["party_a"], summary["party_b"], "Result", "How it was reached"]
+    for cell, text in zip(table.rows[0].cells, header):
+        shade(cell)
+        run = tight(cell.paragraphs[0]).add_run(text)
+        run.bold = True
+        run.font.size = Pt(8)
+    for entry in summary["terms"]:
+        cells = table.add_row().cells
+        positions = [plain(entry[side]) for side in ("a", "b")]
+        positions = [text[0].upper() + text[1:] for text in positions]
+        texts = [TERM_LABELS.get(entry["term"], entry["term"]), *positions,
+                 result_text(entry), None]
+        for cell, text in zip(cells[:4], texts[:4]):
+            tight(cell.paragraphs[0]).add_run(text).font.size = Pt(8)
+        cells[0].paragraphs[0].runs[0].bold = True
+        cells[3].paragraphs[0].runs[0].bold = True
+        para = tight(cells[4].paragraphs[0])
+        label = para.add_run(OUTCOME_LABELS.get(entry["outcome"], entry["outcome"]) + ". ")
+        label.bold = True
+        label.font.size = Pt(8)
+        para.add_run(plain(entry["how"]) + ".").font.size = Pt(8)
+    style_table(table, [1.3, 1.15, 1.15, 1.0, 1.7], pad=50)
 
 
 def build(result):
@@ -180,6 +262,17 @@ def build(result):
     normal.font.size = Pt(10)
     normal.paragraph_format.space_after = Pt(8)
     normal.paragraph_format.line_spacing = 1.1
+    heading = doc.styles["Heading 1"]
+    heading.font.name = SERIF
+    heading.font.size = Pt(15)
+    heading.font.bold = True
+    heading.font.color.rgb = RGBColor(0, 0, 0)
+    fonts = heading.element.get_or_add_rPr().get_or_add_rFonts()
+    for attr in ("w:ascii", "w:hAnsi", "w:eastAsia", "w:cs"):
+        fonts.set(qn(attr), SERIF)
+    for attr in ("w:asciiTheme", "w:hAnsiTheme", "w:eastAsiaTheme", "w:cstheme"):
+        if fonts.get(qn(attr)) is not None:
+            del fonts.attrib[qn(attr)]
     section = doc.sections[0]
     section.top_margin = section.bottom_margin = Inches(0.85)
     section.left_margin = section.right_margin = Inches(1.1)
@@ -240,12 +333,7 @@ def build(result):
         "Page above. By signing this Cover Page, each party agrees to enter into this MNDA "
         "as of the Effective Date.")
 
-    sig = doc.add_table(rows=1, cols=2)
-    signature_cell(sig.rows[0].cells[0], 1, terms["parties"][0])
-    signature_cell(sig.rows[0].cells[1], 2, terms["parties"][1])
-    style_table(sig, [3.15, 3.15], rules=False)
-    # Keep each signature block whole; never split it across pages.
-    sig.rows[0]._tr.get_or_add_trPr().append(_el("w:cantSplit"))
+    signature_block(doc, terms["parties"])
 
     # 2. Standard Terms, attached for convenience
     title(doc, "Standard Terms", page_break=True)
@@ -269,8 +357,24 @@ def build(result):
     title(doc, "NDA Handshake Record", page_break=True)
     note = doc.add_paragraph(
         "This page records how the terms on the Cover Page were reached. It is not part "
-        "of the MNDA.")
-    note.paragraph_format.space_after = Pt(12)
+        "of the MNDA. It restates positions each party disclosed to the other in its "
+        "nda-handshake.md file.")
+    note.paragraph_format.space_after = Pt(10)
+
+    summary = result.get("summary")
+    if summary:
+        counts = {}
+        for entry in summary["terms"]:
+            label = OUTCOME_LABELS.get(entry["outcome"], entry["outcome"]).lower()
+            counts[label] = counts.get(label, 0) + 1
+        tally = ", ".join(f"{n} {label}" for label, n in counts.items())
+        line = doc.add_paragraph()
+        line.paragraph_format.space_after = Pt(6)
+        line.add_run(f"How the {len(summary['terms'])} terms were reached: ").bold = True
+        line.add_run(tally + ".")
+        summary_table(doc, summary)
+        doc.add_paragraph().paragraph_format.space_after = Pt(4)
+
     record = doc.add_table(rows=0, cols=2)
     rows = [("Protocol version", terms["protocol_version"]),
             ("Terms hash (SHA-256)", result["terms_hash"])]

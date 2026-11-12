@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NDA Handshake matcher, protocol v0.3
+"""NDA Handshake matcher, protocol v0.4
 
 Reads two nda-handshake.md files, intersects their NDA positions, and writes
 agreed terms (or a list of conflicts) plus a draft cover page.
@@ -17,7 +17,7 @@ import sys
 
 import yaml
 
-PROTOCOL_VERSIONS = {"0.3"}
+PROTOCOL_VERSIONS = {"0.4"}
 MAX_LEN = 200
 
 
@@ -178,13 +178,31 @@ def ranked(pos, allowed, name, label, notes):
     return out
 
 
-def match_choice(name, a, b, allowed, conflicts, open_items, notes):
+def describe_choice(ranked_values):
+    if ranked_values is None:
+        return "No position stated"
+    if len(ranked_values) == 1:
+        return f"{ranked_values[0]} only"
+    return f"Prefers {ranked_values[0]}; also accepts {', '.join(ranked_values[1:])}"
+
+
+def match_choice(name, a, b, allowed, conflicts, open_items, notes, trace=None, favored=()):
+    """Pick the option that ranks best for both sides.
+
+    favored is an ordered list of (value, reason) pairs used to break a tie
+    on principle before falling back to alphabetical order.
+    """
     ra = ranked(a, allowed, name, "Party A", notes)
     rb = ranked(b, allowed, name, "Party B", notes)
+    entry = {"term": name, "a": describe_choice(ra), "b": describe_choice(rb)}
+    if trace is not None:
+        trace.append(entry)
     if ra is None and rb is None:
         open_items.append(f"{name}: neither side states a position")
+        entry.update(result=None, outcome="OPEN", how="Neither side stated a position")
         return None
     # A silent side accepts any allowed value, so the other side's top choice wins.
+    one_silent = ra is None or rb is None
     if ra is None:
         ra = list(rb)
     if rb is None:
@@ -192,9 +210,33 @@ def match_choice(name, a, b, allowed, conflicts, open_items, notes):
     common = [x for x in ra if x in rb]
     if not common:
         conflicts.append(f"{name}: no common option ({ra} vs {rb})")
+        entry.update(result=None, outcome="CONFLICT", how="No option is acceptable to both")
         return None
-    # Lowest combined rank wins; alphabetical order breaks ties.
-    return min(common, key=lambda x: (ra.index(x) + rb.index(x), x))
+    # Lowest combined rank wins.
+    score = {x: ra.index(x) + rb.index(x) for x in common}
+    best = min(score.values())
+    tied = sorted(x for x in common if score[x] == best)
+    if len(tied) == 1:
+        value = tied[0]
+        if one_silent:
+            outcome, how = "ONE_SIDED", "One side stated no position, so the other's preference applies"
+        elif ra[0] == rb[0] == value:
+            outcome, how = "MATCHED", "Both sides preferred this"
+        else:
+            outcome, how = "BEST_SHARED", "The option that ranks best across both sides' lists"
+    else:
+        # A tie is broken on principle where possible, and alphabetically only as a last resort.
+        value, how = None, None
+        for candidate, reason in favored:
+            if candidate in tied:
+                value, how = candidate, f"Tie between {' and '.join(tied)}, broken because {reason}"
+                break
+        if value is None:
+            value = tied[0]
+            how = f"Tie between {' and '.join(tied)}, broken by alphabetical order"
+        outcome = "TIE_BREAK"
+    entry.update(result=value, outcome=outcome, how=how)
+    return value
 
 
 def read_range(pos, bounds, name, label, notes):
@@ -214,13 +256,26 @@ def read_range(pos, bounds, name, label, notes):
     return lo, hi, prefer
 
 
-def match_range(name, a, b, conflicts, open_items, notes):
+def describe_range(pos):
+    if pos is None:
+        return "No position stated"
+    lo, hi, prefer = pos
+    span = f"{lo}" if lo == hi else f"{lo} to {hi}"
+    return f"Prefers {prefer}; accepts {span}"
+
+
+def match_range(name, a, b, conflicts, open_items, notes, trace=None):
     bounds = RANGES[name]
     pa = read_range(a, bounds, name, "Party A", notes)
     pb = read_range(b, bounds, name, "Party B", notes)
+    entry = {"term": name, "a": describe_range(pa), "b": describe_range(pb)}
+    if trace is not None:
+        trace.append(entry)
     if pa is None and pb is None:
         open_items.append(f"{name}: neither side states a position")
+        entry.update(result=None, outcome="OPEN", how="Neither side stated a position")
         return None
+    one_silent = pa is None or pb is None
     if pa is None:
         pa = (bounds[0], bounds[1], pb[2])
     if pb is None:
@@ -229,13 +284,27 @@ def match_range(name, a, b, conflicts, open_items, notes):
     if lo > hi:
         conflicts.append(
             f"{name}: ranges do not overlap ({pa[0]} to {pa[1]} vs {pb[0]} to {pb[1]})")
+        entry.update(result=None, outcome="CONFLICT", how="The two ranges do not overlap")
         return None
     # Midpoint of the two preferences, rounded half up, kept inside the overlap.
     target = (pa[2] + pb[2]) / 2
-    return max(lo, min(hi, int(target + 0.5)))
+    rounded = int(target + 0.5)
+    value = max(lo, min(hi, rounded))
+    if one_silent:
+        outcome, how = "ONE_SIDED", "One side stated no position, so the other's preference applies"
+    elif pa[2] == pb[2] == value:
+        outcome, how = "MATCHED", "Both sides preferred this"
+    elif value != rounded:
+        outcome, how = "MIDPOINT", "Midpoint of the two preferences, kept inside the range both accept"
+    elif rounded != target:
+        outcome, how = "MIDPOINT", "Midpoint of the two preferences, rounded up"
+    else:
+        outcome, how = "MIDPOINT", "Midpoint of the two preferences"
+    entry.update(result=value, outcome=outcome, how=how)
+    return value
 
 
-def match_toggle(name, a, b, conflicts, notes):
+def match_toggle(name, a, b, conflicts, notes, trace=None):
     """Included only if one side requires it and the other does not reject it."""
     positions = []
     for label, raw in (("Party A", a), ("Party B", b)):
@@ -244,10 +313,25 @@ def match_toggle(name, a, b, conflicts, notes):
             notes.append(f"{label}: {name} must be require, accept or reject; treated as accept")
             p = "accept"
         positions.append(p)
+    entry = {"term": name, "a": positions[0].capitalize(), "b": positions[1].capitalize()}
+    if trace is not None:
+        trace.append(entry)
     if set(positions) == {"require", "reject"}:
         conflicts.append(f"{name}: one side requires it, the other rejects it")
+        entry.update(result=None, outcome="CONFLICT",
+                     how="One side requires it and the other rejects it")
         return False
-    return "require" in positions
+    included = "require" in positions
+    if positions == ["require", "require"]:
+        outcome, how = "MATCHED", "Both sides required it"
+    elif included:
+        outcome, how = "REQUIRED", "One side required it and the other accepted it"
+    elif "reject" in positions:
+        outcome, how = "NOT_INCLUDED", "Neither side required it, and one side rejected it"
+    else:
+        outcome, how = "NOT_INCLUDED", "Neither side required it"
+    entry.update(result=included, outcome=outcome, how=how)
+    return included
 
 
 def render(terms, digest, status):
@@ -407,36 +491,60 @@ def run_match(file_a, file_b, purpose, entity_a=None, entity_b=None):
         return dict(base, status="OUT_OF_PROTOCOL", flagged_by=flagged)
 
     # 3. Match the closed list of variables.
-    conflicts, missing, open_items, notes = [], [], [], []
+    conflicts, missing, open_items, notes, trace = [], [], [], [], []
+    party_a = pick_entity(a, entity_a, "Party A", missing)
+    party_b = pick_entity(b, entity_b, "Party B", missing)
+
+    # A state both parties are formed in is the first principled way to break a tie.
+    canon_states = {state.lower(): state for state in US_STATES}
+    home_a = canon_states.get((party_a["formed_in"] or "").lower())
+    home_b = canon_states.get((party_b["formed_in"] or "").lower())
+    shared_home = [(home_a, "both parties are formed there")] if home_a and home_a == home_b else []
+
     terms = {
         "protocol_version": va,
-        "parties": [
-            pick_entity(a, entity_a, "Party A", missing),
-            pick_entity(b, entity_b, "Party B", missing),
-        ],
+        "parties": [party_a, party_b],
         "purpose": clean(purpose),
         "direction": "mutual",
-        "form": match_choice("form", na.get("form"), nb.get("form"), FORMS,
-                             conflicts, open_items, notes),
-        "nda_term_years": match_range("nda_term_years", na.get("nda_term_years"),
-                                      nb.get("nda_term_years"), conflicts, open_items, notes),
-        "confidentiality_years": match_range(
-            "confidentiality_years", na.get("confidentiality_years"),
-            nb.get("confidentiality_years"), conflicts, open_items, notes),
-        "confidentiality_starts": match_choice(
-            "confidentiality_starts", na.get("confidentiality_starts"),
-            nb.get("confidentiality_starts"), CONF_STARTS, conflicts, open_items, notes),
-        "governing_law": match_choice("governing_law", na.get("governing_law"),
-                                      nb.get("governing_law"), US_STATES,
-                                      conflicts, open_items, notes),
-        "venue": match_choice("venue", na.get("venue"), nb.get("venue"), US_STATES,
-                              conflicts, open_items, notes),
-        "marking_requirement": match_choice(
-            "marking_requirement", na.get("marking_requirement"),
-            nb.get("marking_requirement"), MARKING, conflicts, [], notes) or "none",
     }
+    terms["form"] = match_choice("form", na.get("form"), nb.get("form"), FORMS,
+                                 conflicts, open_items, notes, trace)
+    terms["nda_term_years"] = match_range(
+        "nda_term_years", na.get("nda_term_years"), nb.get("nda_term_years"),
+        conflicts, open_items, notes, trace)
+    terms["confidentiality_years"] = match_range(
+        "confidentiality_years", na.get("confidentiality_years"),
+        nb.get("confidentiality_years"), conflicts, open_items, notes, trace)
+    terms["confidentiality_starts"] = match_choice(
+        "confidentiality_starts", na.get("confidentiality_starts"),
+        nb.get("confidentiality_starts"), CONF_STARTS, conflicts, open_items, notes, trace)
+    terms["governing_law"] = match_choice(
+        "governing_law", na.get("governing_law"), nb.get("governing_law"), US_STATES,
+        conflicts, open_items, notes, trace, favored=shared_home)
+    # A venue tie follows the agreed governing law first, then a shared home state.
+    venue_favored = shared_home
+    if terms["governing_law"]:
+        venue_favored = [(terms["governing_law"], "it matches the governing law")] + shared_home
+    terms["venue"] = match_choice(
+        "venue", na.get("venue"), nb.get("venue"), US_STATES,
+        conflicts, open_items, notes, trace, favored=venue_favored)
+    terms["marking_requirement"] = match_choice(
+        "marking_requirement", na.get("marking_requirement"),
+        nb.get("marking_requirement"), MARKING, conflicts, [], notes, trace) or "none"
+    if trace[-1]["outcome"] == "OPEN":
+        trace[-1].update(result="none", outcome="FORM_DEFAULT",
+                         how="Neither side stated a position, so the form's own rule applies")
     for t in TOGGLES:
-        terms[t] = match_toggle(t, na.get(t), nb.get(t), conflicts, notes)
+        terms[t] = match_toggle(t, na.get(t), nb.get(t), conflicts, notes, trace)
+
+    # The summary shows how each term was reached. It is not part of the terms or the hash.
+    # Like the parties, it is ordered by legal name, so file order does not change it.
+    name_a, name_b = party_a["legal_name"] or "", party_b["legal_name"] or ""
+    if name_a.lower() > name_b.lower():
+        name_a, name_b = name_b, name_a
+        for entry in trace:
+            entry["a"], entry["b"] = entry["b"], entry["a"]
+    summary = {"party_a": name_a, "party_b": name_b, "terms": trace}
     # Fixed party order, so both sides get the same hash whichever file is listed first.
     terms["parties"].sort(key=lambda p: (p["legal_name"] or "").lower())
 
@@ -451,7 +559,7 @@ def run_match(file_a, file_b, purpose, entity_a=None, entity_b=None):
     digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     return dict(base, status=status, terms_hash=digest, terms=terms,
                 conflicts=conflicts, missing_info=missing,
-                open_items=open_items, notes=notes)
+                open_items=open_items, notes=notes, summary=summary)
 
 
 def main():

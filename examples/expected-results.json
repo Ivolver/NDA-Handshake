@@ -1,5 +1,5 @@
 {
-  "protocol_version": "0.3",
+  "protocol_version": "0.4",
   "purpose": "Evaluating a potential business relationship",
   "match_cases": [
     {
@@ -9,7 +9,9 @@
         "lakeside-fictional/nda-handshake.md"
       ],
       "status": "AGREED",
-      "terms_hash": "056336ebb3044ac2f3950943fbcb7f4d730390b98edbe4d161dc6a5b7edadcd7"
+      "terms_hash": "742c9db991529d5c68f9cbc9b8d472bd37bb56572a3ee28a21ef8ba9b70f94f2",
+      "governing_law": "Delaware",
+      "venue": "Delaware"
     },
     {
       "name": "Same pair, files in reverse order",
@@ -18,7 +20,9 @@
         "harbor-fictional/nda-handshake.md"
       ],
       "status": "AGREED",
-      "terms_hash": "056336ebb3044ac2f3950943fbcb7f4d730390b98edbe4d161dc6a5b7edadcd7"
+      "terms_hash": "742c9db991529d5c68f9cbc9b8d472bd37bb56572a3ee28a21ef8ba9b70f94f2",
+      "governing_law": "Delaware",
+      "venue": "Delaware"
     },
     {
       "name": "Harbor and Northwind conflict",
@@ -48,6 +52,17 @@
       ]
     },
     {
+      "name": "Lakeside and Midtown: tie broken by shared state of formation",
+      "files": [
+        "lakeside-fictional/nda-handshake.md",
+        "midtown-fictional/nda-handshake.md"
+      ],
+      "status": "AGREED",
+      "terms_hash": "f5a3c2cef8d7e9d9e4c588c638b6e5c038fb5f8faf05df19a5eeb279bea935e5",
+      "governing_law": "New York",
+      "venue": "New York"
+    },
+    {
       "name": "Outlier is out of protocol",
       "files": [
         "harbor-fictional/nda-handshake.md",
@@ -57,9 +72,10 @@
     }
   ],
   "fingerprints": {
-    "harbor-fictional/nda-handshake.md": "8cc177c0de2b51d4705f270de454d60343f6eb4d4415bb2951e930c4f0383437",
-    "lakeside-fictional/nda-handshake.md": "941d9cd9f948969ccadcb99e0a3ee4c994d3c34d5b60ded74c544f7422b22fd0",
-    "northwind-fictional/nda-handshake.md": "72b9616e876f9a25a23a336bd3b4dc28543d66e8d9ef34bdfca164f6111e6ebc",
-    "outlier-fictional/nda-handshake.md": "0e54c7533b8cb6a07008948f16040b098b50768a1320269201674140cc939a02"
+    "harbor-fictional/nda-handshake.md": "32d2b4093847e5c811ab7ad2ecc5e4af2c860ab176b9a441e8a3c8220d6cf96e",
+    "lakeside-fictional/nda-handshake.md": "2652fc1abb9335f1340278756deebe95df68a8b96f6ddbe35937b22f16635a1b",
+    "midtown-fictional/nda-handshake.md": "f4afdf02c079a5775e390823a49ab6b19d70dd611ec69da63608ccb2d7a43f53",
+    "northwind-fictional/nda-handshake.md": "62aad459748358dc6f037c2b8ff54b92e9ae71309dbf591de303783e29c103db",
+    "outlier-fictional/nda-handshake.md": "5c9f777123f081ea586ca9e99dc8a6b81fbc1dc31c3c76281271741b25c5285d"
   }
 }
