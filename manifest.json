@@ -2,7 +2,7 @@
   "manifest_version": "0.4",
   "name": "nda-handshake",
   "display_name": "NDA Handshake",
-  "version": "0.10.3",
+  "version": "0.10.4",
   "description": "Put a standard mutual NDA in place with another company by a sealed exchange of three emails.",
   "long_description": "NDA Handshake lets two companies' assistants settle a standard mutual NDA without trading redlines. Each company keeps a small file with its details and its NDA positions. The assistants exchange three emails under seal, so neither side sees the other's positions before fixing its own, and both work out the same NDA. Everything runs on your own computer. Nothing is fetched from the network, nothing is sent without you, and nothing is signed for you.",
   "author": {
@@ -92,5 +92,8 @@
     "contracts",
     "confidentiality"
   ],
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "privacy_policies": [
+    "https://github.com/Ivolver/NDA-Handshake#privacy"
+  ]
 }

@@ -156,8 +156,11 @@ ONBOARDING = {
             "non-compete, a one-way NDA, arbitration, non-US law, an NDA with no end date, "
             "confidentiality forever, an individual as a party), tell the person plainly "
             "that an NDA made by handshake will not include it. Ask whether the company "
-            "needs it in every NDA. If yes, set custom_terms_required. If the company can "
-            "do without it for routine NDAs, leave it out."),
+            "needs it in every NDA. Explain the choice: if it is a must-have, the file is "
+            "marked custom_terms_required, and then every handshake with this company ends "
+            "without an NDA and tells both sides to negotiate the ordinary way, so the "
+            "company is in effect opting out of handshakes. If the company can do without "
+            "it for routine NDAs, leave the mark off and the term is simply not included."),
     },
 }
 

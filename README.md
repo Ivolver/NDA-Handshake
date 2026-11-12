@@ -335,6 +335,29 @@ The bundle is described by `manifest.json`, `pyproject.toml` and
 2. Set your real NDA positions. The sample positions are placeholders.
 3. Have the output cover page reviewed and signed by a human.
 
+## Privacy
+
+NDA Handshake runs entirely on your own computer.
+
+- **What it collects:** nothing. There is no account, no telemetry and no
+  analytics. The project's authors receive no information about you, your
+  company, your positions or your NDAs.
+- **What it stores, and where:** your company's `nda-handshake.md` and your
+  completed NDAs in the storage folder you choose, and a small record of
+  each exchange in a `.nda-handshake` folder in your home directory. All
+  of it stays on your computer until you delete it.
+- **What it sends:** nothing. The connector makes no network requests. The
+  emails of an exchange are sent by your assistant through your own email,
+  with your approval, and they go only to the counterparty you chose. An
+  exchange shares your company's positions with that counterparty; that is
+  its purpose, and your assistant asks before replying to an invitation.
+- **Third parties:** none on the project's side. Your AI assistant and your
+  email provider handle the content of your conversations and emails under
+  their own terms. A one-click install lets the app download Python and
+  the open-source packages the connector needs.
+- **Questions:** open an issue at
+  https://github.com/Ivolver/NDA-Handshake/issues.
+
 ## Disclaimer
 
 This tool is not legal advice. Using it creates no attorney-client
