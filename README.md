@@ -108,9 +108,33 @@ the cases where a file or a hash has been tampered with:
 
 `mcp_server.py` is a local Model Context Protocol server. An AI assistant
 that speaks MCP (for example Claude Desktop) can use it to run a handshake.
-Ten tools. Nothing is fetched from the network. Each tool that reads a
-file takes it either as a local path or as its text, so an assistant can
-work straight from an email attachment without saving anything to disk.
+Seven tools. Nothing is fetched from the network. The server also gives
+the assistant standing instructions, so the person does not have to spell
+out the steps.
+
+The front door:
+
+- `handshake(...)`: the assistant calls this and does what the result
+  says. Given a purpose and a counterparty, it starts a handshake and
+  returns the invitation to send. Given the text of an email that contains
+  an `nda-handshake:` block, it works out the step: it replies to an
+  invitation, reveals after a reply, or checks a reveal. Given nothing, it
+  reports what is set up and which exchanges are in progress. Each result
+  says what to tell the person, what to ask them if anything, and the
+  exact email to send.
+
+What this looks like to the people involved:
+
+| Who | What the person does | What the assistant does |
+|---|---|---|
+| Inviter | Says "start an NDA handshake with Jane at Acme about a possible partnership" | Seals the file and sends the invitation |
+| Replier | Answers one question: reply to this invitation? | Sends the reply with the company's file |
+| Inviter | Nothing | Runs the match, sends the reveal (with the NDA attached if it can), reports the terms |
+| Replier | Nothing | Verifies the reveal, reports the terms |
+| Both | Sign their copy of the NDA | |
+
+Only two things ever need a person's yes: replying to an invitation, since
+it shares the company's positions, and sending a contest.
 
 Setting up:
 
@@ -122,22 +146,6 @@ Setting up:
   example from the company's own past NDAs. Returns the file's text and a
   check report, plus each position in plain English for the person to
   confirm. With `save`, stores it as the company's own file.
-
-Running a sealed exchange (see `SPEC.md`):
-
-- `make_invitation(purpose)`: step 1, for the inviting company. Returns
-  the invitation block with a sealed commitment to the company's file.
-- `make_reply(invitation_text)`: step 2, for the replying company. Returns
-  the reply block and the company's file to attach.
-- `make_reveal(reply_text, their file)`: step 3, for the inviting company.
-  Runs the match and returns the reveal block, the company's file to
-  attach and, when agreed, the company's copy of the signable NDA. When
-  not agreed, returns a report of the failed terms with a suggestion for
-  the company's own human.
-- `check_reveal(reveal_text, their file)`: step 4, for the replying
-  company. Verifies the commitment and the receipt against its own run,
-  writes that company's own copy of the NDA, and returns a contest block
-  if anything does not match.
 
 Working with files directly:
 
@@ -157,7 +165,7 @@ Working with files directly:
   `out_path` from the result the `match` tool returned. Refuses any status
   other than `AGREED`.
 
-All ten return structured output only. No tool returns the body text of
+All seven return structured output only. No tool returns the body text of
 a file it was given, or the contents of any other file; `draft_file`
 returns only the text it wrote itself. Every
 output is an unsigned draft that a qualified person should review before

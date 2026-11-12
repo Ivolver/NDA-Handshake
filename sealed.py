@@ -13,8 +13,9 @@ Three messages:
    the result against its own run.
 
 Each company produces the NDA document from its own run. The two copies
-carry the same terms and the same terms hash, so no document needs to
-travel with the reveal.
+carry the same terms and the same terms hash, so the exchange does not
+depend on a document travelling with the reveal. The inviting company
+attaches its copy when it can, as a courtesy.
 
 Each message carries a short block of labelled lines. Only those lines are
 read. Nothing else in a message is read, and nothing in a message is
@@ -342,7 +343,64 @@ def conflict_report(result, own_name):
 
 # ------------------------------------------------------------ the three steps
 
-def make_invitation(purpose, own_source=None):
+def detect_kind(text):
+    """Which kind of message block comes first in this text, or None.
+
+    An email often quotes the earlier messages of its thread below the new
+    one, so the first block is the one that matters.
+    """
+    if not isinstance(text, str):
+        return None
+    best = None
+    for i, ln in enumerate(text[:200_000].splitlines()):
+        m = re.fullmatch(r"nda-handshake:\s*(invitation|reply|reveal|contest)",
+                         re.sub(r"^[>\s]+", "", ln).rstrip(), re.I)
+        if m:
+            best = m.group(1).lower()
+            break
+    return best
+
+
+def own_company(own_source=None):
+    """This company's legal name and positions, without starting anything."""
+    text, path = _own_text(own_source)
+    return {"name": _legal_name(text), "own_file_path": path,
+            "your_positions": positions_summary(FileText(text))}
+
+
+def list_exchanges():
+    """Every exchange recorded on this machine, newest first."""
+    folder = os.path.join(home(), "exchanges")
+    out = []
+    try:
+        names = sorted(os.listdir(folder))
+    except OSError:
+        names = []
+    for name in names:
+        try:
+            with open(os.path.join(folder, name), encoding="utf-8") as f:
+                r = json.load(f)
+        except (OSError, ValueError):
+            continue
+        if r.get("role") == "inviter":
+            state = (f"finished: {r.get('status')}" if r.get("revealed")
+                     else "invitation sent; waiting for their reply")
+            other = r.get("replied_by") or r.get("counterparty") or "not yet known"
+        else:
+            if r.get("checked"):
+                state = ("finished: contested (" + r["ground"] + ")" if r.get("ground")
+                         else f"finished: {r.get('status')}")
+            else:
+                state = "reply sent; waiting for their reveal"
+            other = r.get("invited_by") or "not yet known"
+        out.append({"role": r.get("role"), "counterparty": other,
+                    "purpose": r.get("purpose"), "state": state,
+                    "started": r.get("created"), "deal_folder": r.get("deal_folder"),
+                    "commitment": (r.get("commitment") or "")[:8]})
+    return sorted(out, key=lambda e: e["started"] or "", reverse=True)
+
+
+def make_invitation(purpose, own_source=None, counterparty=None):
     """Step 1, inviting company. Commit to this company's file."""
     purpose = _one_line(purpose, "purpose")
     text, path = _own_text(own_source)
@@ -354,6 +412,7 @@ def make_invitation(purpose, own_source=None):
         "role": "inviter", "commitment": commitment, "secret": secret,
         "own_fingerprint": fp, "own_file": text, "purpose": purpose,
         "base": os.path.dirname(path) if path else None,
+        "counterparty": _one_line(counterparty, "counterparty") if counterparty else None,
         "created": datetime.date.today().isoformat()})
     block = format_block("invitation", {"protocol": _protocol(), "from": name,
                                         "purpose": purpose, "commitment": commitment})
@@ -400,7 +459,7 @@ def make_reveal(reply_text, their_source, out_dir=None):
     own_path = _write(os.path.join(folder, "nda-handshake.md"), record["own_file"])
     _write(os.path.join(folder, "result.json"), json.dumps(result, indent=2) + "\n")
     record.update(revealed=True, replier_fingerprint=their_fp, status=status,
-                  deal_folder=folder)
+                  deal_folder=folder, replied_by=reply["from"])
     _save_record("inviter", record["commitment"], record)
     return {"status": status, "message_block": format_block("reveal", fields),
             "attach": [own_path], "deal_folder": folder, "result": result,

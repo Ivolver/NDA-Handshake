@@ -294,7 +294,8 @@ Reply, with the replying company's `nda-handshake.md` attached:
     from: <legal name of the replying company>
     commitment: <the invitation's commitment>
 
-Reveal, with the inviting company's `nda-handshake.md` attached:
+Reveal, with the inviting company's `nda-handshake.md` attached and, when
+agreed and where the sender is able to attach it, the NDA:
 
     nda-handshake: reveal
     protocol: 0.5
@@ -335,12 +336,21 @@ Contest, sent only if the check fails:
   reports the failed terms to its own human and may suggest a resolution.
   Assistants do not bargain with each other. If a person approves changed
   positions for the deal, the companies run a new sealed exchange.
-- Each company produces the NDA document from its own run. The two
-  copies carry the same terms and the same terms hash, so the document
-  does not travel with the reveal. Where the companies sign by hand, they
-  sign as counterparts and exchange signed copies after the check.
+- Each company produces the NDA document from its own run, and the two
+  copies carry the same terms and the same terms hash. When the result is
+  `AGREED`, the inviting company attaches its copy to the reveal if it is
+  able to. This is a courtesy and not a condition: a reveal without the
+  document is complete, and the replying company relies on its own copy.
+  The reveal is not held back for a signature. Where the companies sign
+  by hand, they sign as counterparts and exchange signed copies after the
+  check.
 - The messages are linked by the commitment, not by the email thread, so
   an exchange still works if an email program fails to thread a message.
+- An assistant replies to an invitation only with a person's approval,
+  because the reply shares the company's positions and offers an NDA on
+  the resulting terms. It sends a contest only with a person's approval.
+  The reveal and the check need no approval: the reveal is owed, and the
+  check is verification. The person is told the outcome of each.
 - A sealed exchange is fair, not private. After the reveal each company
   has seen the other's positions.
 
@@ -369,6 +379,12 @@ Machine-readable JSON Schemas for the file's fields and for a matcher's
 result are published in the `schema/` folder. They restate this spec for
 software and do not add rules. If a schema and this spec disagree, the spec
 governs.
+
+## Revision 0.5.2
+
+- States when an assistant needs a person's approval during a sealed
+  exchange. No change to the file format, the matching rules or the
+  messages.
 
 ## Revision 0.5.1
 
