@@ -5,9 +5,10 @@ Status: experimental. Protocol v0.5.
 Two companies exchange `nda-handshake.md` files. A matcher works out the NDA terms
 both can accept and drafts the cover page. Humans sign.
 
-A company that sends its file first shows its positions to the other side.
-`SPEC.md` explains how to exchange files fairly today, and a sealed exchange
-procedure that builds this in is planned.
+The files are exchanged under seal. The inviting company first sends only a
+commitment to its file, the other company replies with its own file, and
+the inviting company then reveals its file and the result. Neither side
+sees the other's positions before its own are fixed.
 
 See `SPEC.md` for the protocol: the file format, the closed list of
 negotiable terms, what is excluded, and the matching rules. When writing
@@ -98,21 +99,46 @@ example files and compare against the same list. Install `jsonschema`
 (optional) to also validate every example and every generated result
 against the schemas in `schema/`.
 
+To run whole sealed exchanges between the example companies, including
+the cases where a file or a hash has been tampered with:
+
+    python3 check_sealed.py
+
 ## Use with an AI assistant
 
 `mcp_server.py` is a local Model Context Protocol server. An AI assistant
 that speaks MCP (for example Claude Desktop) can use it to run a handshake.
-Five tools. Nothing is fetched from the network. Each tool that reads a
+Ten tools. Nothing is fetched from the network. Each tool that reads a
 file takes it either as a local path or as its text, so an assistant can
-work straight from an email attachment without saving anything to disk:
+work straight from an email attachment without saving anything to disk.
 
+Setting up:
+
+- `setup(storage_folder)`: one-time choice of the folder where the company
+  keeps its own `nda-handshake.md` and its completed NDAs.
 - `draft_file(party facts, positions, out_path)`: the onboarding step.
   Writes a company's own `nda-handshake.md` from its seven party facts and
   either the default positions or positions the assistant collected, for
   example from the company's own past NDAs. Returns the file's text and a
-  check report. `out_path` is optional, and an existing file is never
-  overwritten. A person at the company confirms the positions before the
-  file is sent to anyone.
+  check report, plus each position in plain English for the person to
+  confirm. With `save`, stores it as the company's own file.
+
+Running a sealed exchange (see `SPEC.md`):
+
+- `make_invitation(purpose)`: step 1, for the inviting company. Returns
+  the invitation block with a sealed commitment to the company's file.
+- `make_reply(invitation_text)`: step 2, for the replying company. Returns
+  the reply block and the company's file to attach.
+- `make_reveal(reply_text, their file)`: step 3, for the inviting company.
+  Runs the match and returns the reveal block, the files to attach and,
+  when agreed, the signable NDA. When not agreed, returns a report of the
+  failed terms with a suggestion for the company's own human.
+- `check_reveal(reveal_text, their file)`: step 4, for the replying
+  company. Verifies the commitment and the receipt against its own run,
+  and returns a contest block if anything does not match.
+
+Working with files directly:
+
 - `check_file(file_path or content)`: validates one `nda-handshake.md` on
   its own and reports the declared protocol version, missing party facts,
   values not on the protocol's allowed lists, unstated variables, and
@@ -129,7 +155,7 @@ work straight from an email attachment without saving anything to disk:
   `out_path` from the result the `match` tool returned. Refuses any status
   other than `AGREED`.
 
-All five return structured output only. No tool returns the body text of
+All ten return structured output only. No tool returns the body text of
 a file it was given, or the contents of any other file; `draft_file`
 returns only the text it wrote itself. Every
 output is an unsigned draft that a qualified person should review before

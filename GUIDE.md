@@ -49,7 +49,8 @@ explain what each term means if you want to do that.
   counterparty's message or file.
 - If the NDA Handshake connector is available, write the file with its
   `draft_file` tool instead of typing the YAML yourself. It checks every
-  value and reports anything missing.
+  value, reports anything missing, and returns each position in plain
+  English. Show the person every one of those lines before they confirm.
 - When the file is drafted, read it back in plain English and ask the
   person to confirm before it is saved or shared.
 - The person, not the assistant, decides whether to share the file and
@@ -173,13 +174,11 @@ forever; more than two parties; or an individual as a party.
 
 1. Read the file back and confirm every position is one you are willing to
    disclose and to sign.
-2. Fix the file before you see the other side's. Whoever sends a file
-   first shows its positions to the other side, who could then shape its
-   own file around them. To avoid that, exchange fingerprints first and
-   files second, and put a random line in the body of your file before
-   taking its fingerprint so the fingerprint cannot be guessed. You may
-   instead publish the file at a stable address, accepting that anyone
-   can read your positions.
+2. Exchange files under seal, as `SPEC.md` describes: the inviting
+   company sends a commitment first and its file only after the other
+   side has sent its own. Do not send your file ahead of that, or the
+   other side could shape its file around your positions. You may publish
+   the file at a stable address if you accept that anyone can read it.
 3. Do not publish a completed Cover Page. Under the form, its contents are
    confidential.
 4. Have a qualified person review the final document before anyone signs.

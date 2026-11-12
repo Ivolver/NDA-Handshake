@@ -41,10 +41,14 @@ def _structured(result):
 
 
 async def run() -> int:
+    # The server keeps its settings and exchange records in a private folder.
+    # Point it at a temporary one so the tests never touch a real setup.
+    test_home = tempfile.mkdtemp(prefix="nda-handshake-test-")
     params = StdioServerParameters(
         command=sys.executable,
         args=[os.path.join(HERE, "mcp_server.py")],
         cwd=HERE,
+        env={**os.environ, "NDA_HANDSHAKE_HOME": os.path.join(test_home, "home")},
     )
     failures: list[str] = []
 
@@ -56,8 +60,10 @@ async def run() -> int:
 
     async with Client(params, raise_exceptions=True) as client:
         tool_names = sorted(t.name for t in (await client.list_tools()).tools)
-        check("list_tools returns the five tools",
-              tool_names == ["check_file", "draft_file", "fingerprint", "make_document", "match"],
+        check("list_tools returns the ten tools",
+              tool_names == ["check_file", "check_reveal", "draft_file", "fingerprint",
+                             "make_document", "make_invitation", "make_reply",
+                             "make_reveal", "match", "setup"],
               f"got {tool_names}")
 
         harbor_md = os.path.join(EXAMPLES, "harbor-fictional", "nda-handshake.md")
@@ -292,6 +298,75 @@ async def run() -> int:
         check("draft_file reports a missing party fact",
               missing.get("ready") is False
               and any("address" in p for p in missing.get("problems", [])))
+
+        # Setup, then a whole sealed exchange through the tools. One server
+        # plays both companies here; check_sealed.py runs them separately.
+        before_setup = _structured(await client.call_tool("setup", {}))
+        check("setup reports nothing configured at first",
+              before_setup.get("storage_folder") is None)
+        blocked = await client.call_tool("draft_file", {**facts, "save": True})
+        check("draft_file cannot save before setup", bool(getattr(blocked, "is_error", False)))
+        storage = os.path.join(test_home, "storage")
+        done = _structured(await client.call_tool("setup", {"storage_folder": storage}))
+        check("setup records the storage folder",
+              done.get("storage_folder") == storage and done.get("own_file_exists") is False)
+
+        shown = _structured(await client.call_tool("draft_file", facts))
+        check("draft_file returns every position in plain English",
+              len(shown.get("your_positions", [])) == 9
+              and all(p["position"] for p in shown["your_positions"])
+              and shown.get("written_to") is None)
+        saved = _structured(await client.call_tool("draft_file", {
+            **facts, "use_default_positions": False,
+            "positions": harbor_positions, "save": True}))
+        own_path = os.path.join(storage, "nda-handshake.md")
+        check("draft_file saves the company's own file",
+              saved.get("written_to") == own_path and os.path.isfile(own_path))
+        await client.call_tool("draft_file", {**facts, "save": True})
+        check("replacing the own file keeps a backup",
+              len([n for n in os.listdir(storage) if ".replaced-" in n]) == 1)
+        await client.call_tool("draft_file", {
+            **facts, "use_default_positions": False,
+            "positions": harbor_positions, "save": True})
+
+        invitation = _structured(await client.call_tool("make_invitation", {"purpose": PURPOSE}))
+        check("make_invitation seals the saved file",
+              "commitment:" in invitation.get("message_block", "")
+              and invitation.get("attach") == []
+              and saved["check"]["file_fingerprint"] not in invitation["message_block"])
+        reply = _structured(await client.call_tool("make_reply", {
+            "invitation_text": "Hello,\n\n" + invitation["message_block"] + "\nThanks",
+            "own_content": lakeside_text}))
+        check("make_reply shows the purpose and positions",
+              reply.get("purpose") == PURPOSE and len(reply.get("your_positions", [])) == 9)
+        reveal = _structured(await client.call_tool("make_reveal", {
+            "reply_text": reply["message_block"], "their_content": lakeside_text}))
+        check("make_reveal agrees and writes the documents to a deal folder",
+              reveal.get("status") == "AGREED"
+              and reveal.get("result", {}).get("terms_hash") == by_text.get("terms_hash")
+              and all(os.path.isfile(p) for p in reveal.get("attach", []))
+              and reveal["attach"][-1].endswith("mnda.docx")
+              and reveal["deal_folder"].startswith(os.path.join(storage, "deals")))
+        verified = _structured(await client.call_tool("check_reveal", {
+            "reveal_text": reveal["message_block"],
+            "their_file_path": reveal["attach"][0]}))
+        check("check_reveal verifies and writes the replier's copy",
+              verified.get("verified") is True and verified.get("ground") is None
+              and os.path.isfile(verified.get("document") or ""))
+        tampered = _structured(await client.call_tool("check_reveal", {
+            "reveal_text": reveal["message_block"], "their_content": harbor_text + "\nx"}))
+        check("check_reveal contests a file that does not match the commitment",
+              tampered.get("verified") is False
+              and tampered.get("ground") == "commitment-mismatch"
+              and tampered.get("document") is None)
+        unknown = await client.call_tool("make_reveal", {
+            "reply_text": reply["message_block"].replace(
+                invitation["commitment"], "a" * 64),
+            "their_content": lakeside_text})
+        check("make_reveal refuses a reply to an invitation it did not make",
+              bool(getattr(unknown, "is_error", False)))
+
+    shutil.rmtree(test_home, ignore_errors=True)
 
     if failures:
         print(f"{len(failures)} check(s) failed.")
