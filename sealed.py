@@ -417,10 +417,14 @@ def invitation_email(own_name, purpose, block):
         "  3. We open ours, and both assistants work out the same NDA.",
         "",
         "Neither side sees the other's positions first, so there is no peeking and",
-        "no haggling. If your assistant knows NDA Handshake, just ask it to handle",
-        "this email. If not, reply and we will send a draft the old-fashioned way.",
+        "no haggling. If your assistant already knows NDA Handshake, just ask it to",
+        "handle this email.",
         "",
-        f"More about the protocol: {PROJECT_URL}",
+        "New to it? The page below shows how to add it. It takes a few minutes, and",
+        "your assistant can work out your positions from NDAs you have already",
+        "signed. Or simply reply and we will send a draft the old-fashioned way.",
+        "",
+        f"About NDA Handshake and how to add it: {PROJECT_URL}",
     ], block)
 
 

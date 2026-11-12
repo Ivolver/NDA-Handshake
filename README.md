@@ -45,8 +45,12 @@ at the end for the assistants:
     What we would like to discuss: Evaluating a possible partnership
 
     Neither side sees the other's positions first, so there is no peeking and
-    no haggling. If your assistant knows NDA Handshake, just ask it to handle
-    this email. If not, reply and we will send a draft the old-fashioned way.
+    no haggling. If your assistant already knows NDA Handshake, just ask it to
+    handle this email.
+
+    New to it? The page below shows how to add it. It takes a few minutes, and
+    your assistant can work out your positions from NDAs you have already
+    signed. Or simply reply and we will send a draft the old-fashioned way.
 
     --- for the assistants (please leave this part as it is) ---
     nda-handshake: invitation
@@ -98,8 +102,15 @@ aside.
    itself. Other assistants can run it from the source; see
    "Install by hand" below.
 2. **Set up your company.** Say "Set up NDA Handshake for my company." Your
-   assistant asks for the company's details, shows you each NDA position,
-   and saves your file once you confirm.
+   assistant asks for the company's details and offers three ways to set
+   your NDA positions: take the balanced defaults, hand it a few NDAs your
+   company has signed (or your own template) and let it propose positions
+   from them, or go through the nine choices one at a time. It shows you
+   every position, and where each came from, and saves your file once you
+   confirm.
+
+If you received an invitation and do not have NDA Handshake yet, do those
+two steps and then ask your assistant to handle the invitation.
 3. **Start a handshake**, or ask your assistant to handle an invitation
    you received.
 

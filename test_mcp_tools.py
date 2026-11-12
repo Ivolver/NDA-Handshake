@@ -331,6 +331,12 @@ async def run() -> int:
         second = _structured(await client.call_tool("handshake", {"purpose": PURPOSE}))
         check("handshake asks for the company's file next",
               second.get("step") == "file_needed" and second.get("send") is None)
+        guide = second["details"].get("onboarding", {})
+        check("onboarding offers three ways, including reading the company's own NDAs",
+              len(guide.get("three_ways_to_set_positions", [])) == 3
+              and "signed" in second.get("ask_person", "")
+              and len(guide["reading_past_ndas"]["what_to_look_for"]) == 8
+              and "outside_the_protocol" in guide["reading_past_ndas"])
         shown = _structured(await client.call_tool("draft_file", facts))
         check("draft_file returns every position in plain English",
               len(shown.get("your_positions", [])) == 9
@@ -368,6 +374,7 @@ async def run() -> int:
               and inv_body.startswith("Hello,")
               and f"What we would like to discuss: {PURPOSE}" in inv_body
               and inv_body.rstrip().splitlines()[-5].startswith("nda-handshake:")
+              and "New to it? The page below shows how to add it." in inv_body
               and "NDA Handshake: Harbor Example LLC" in started["send"]["subject"]
               and saved["check"]["file_fingerprint"] not in inv_body)
 
