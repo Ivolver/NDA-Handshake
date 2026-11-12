@@ -102,10 +102,17 @@ against the schemas in `schema/`.
 
 `mcp_server.py` is a local Model Context Protocol server. An AI assistant
 that speaks MCP (for example Claude Desktop) can use it to run a handshake.
-Four tools. Nothing is fetched from the network. Each tool takes a file
-either as a local path or as its text, so an assistant can work straight
-from an email attachment without saving anything to disk:
+Five tools. Nothing is fetched from the network. Each tool that reads a
+file takes it either as a local path or as its text, so an assistant can
+work straight from an email attachment without saving anything to disk:
 
+- `draft_file(party facts, positions, out_path)`: the onboarding step.
+  Writes a company's own `nda-handshake.md` from its seven party facts and
+  either the default positions or positions the assistant collected, for
+  example from the company's own past NDAs. Returns the file's text and a
+  check report. `out_path` is optional, and an existing file is never
+  overwritten. A person at the company confirms the positions before the
+  file is sent to anyone.
 - `check_file(file_path or content)`: validates one `nda-handshake.md` on
   its own and reports the declared protocol version, missing party facts,
   values not on the protocol's allowed lists, unstated variables, and
@@ -122,8 +129,9 @@ from an email attachment without saving anything to disk:
   `out_path` from the result the `match` tool returned. Refuses any status
   other than `AGREED`.
 
-All four return structured output only; neither the body text of an
-`nda-handshake.md` nor the contents of any other file is returned. Every
+All five return structured output only. No tool returns the body text of
+a file it was given, or the contents of any other file; `draft_file`
+returns only the text it wrote itself. Every
 output is an unsigned draft that a qualified person should review before
 anyone signs anything.
 

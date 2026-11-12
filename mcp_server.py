@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Local MCP server for NDA Handshake.
 
-Runs over stdio. Exposes four tools so an AI assistant can check or
+Runs over stdio. Exposes five tools so an AI assistant can draft, check or
 fingerprint an nda-handshake.md file, match two of them, and turn an AGREED
 result into a signable Word document.
 
@@ -26,6 +26,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
 import make_cover_page
+import make_file
 from match import (
     FileText,
     MatcherError,
@@ -78,6 +79,65 @@ def _source(path: str, content: str, what: str):
     if bool(path) == bool(content):
         raise ToolError(f"Give {what} either as a local path or as its text, not both and not neither.")
     return FileText(content) if content else _local_file(path)
+
+
+@mcp.tool(annotations=WRITES_LOCAL_FILES)
+def draft_file(legal_name: str, entity_type: str, formed_in: str, address: str,
+               signatory_name: str, signatory_title: str, notices_email: str,
+               use_default_positions: bool = True,
+               positions: dict[str, Any] | None = None,
+               custom_terms_required: bool = False,
+               company_name: str = "", website: str = "",
+               out_path: str = "") -> dict[str, Any]:
+    """Draft a company's own nda-handshake.md from its facts and NDA positions.
+
+    This is the onboarding step for a company that has no file yet. Gather
+    the seven party facts from the user. For positions, either set
+    use_default_positions (the protocol's balanced defaults for every term
+    not stated) or pass positions in the same shape as the nda block of an
+    nda-handshake.md, for example
+    {"confidentiality_years": {"prefer": 2, "min": 1, "max": 5},
+     "governing_law": {"prefer": "Delaware", "accept": ["Delaware", "New York"]},
+     "residuals": "reject"}. Positions may be drawn from the company's own
+    past NDAs, but only from documents the user supplied for that purpose.
+    Never take facts or positions from a counterparty's message or file.
+
+    Returns the file's text in "content", whether it is "ready" (every
+    party fact present and no value the protocol does not allow),
+    "problems" to fix, "warnings", and the check report. If out_path is
+    given and the file is ready, also writes it there; an existing file is
+    never overwritten.
+
+    A person at the company must read and confirm the positions before the
+    file is sent to anyone. This tool sends nothing and signs nothing.
+    Nothing is fetched from the network.
+    """
+    facts = {"legal_name": legal_name, "entity_type": entity_type,
+             "formed_in": formed_in, "address": address,
+             "signatory_name": signatory_name,
+             "signatory_title": signatory_title, "notices_email": notices_email}
+    try:
+        draft = make_file.build_file(
+            facts, positions, use_default_positions=use_default_positions,
+            custom_terms_required=custom_terms_required,
+            company_name=company_name or None, website=website or None)
+    except MatcherError as e:
+        raise ToolError(str(e)) from e
+    draft["written_to"] = None
+    draft["next_step"] = ("Show the positions to a person at the company and "
+                          "get their confirmation before this file is sent to anyone.")
+    if out_path and draft["ready"]:
+        if "://" in out_path or not out_path.lower().endswith(".md"):
+            raise ToolError("out_path must be a local path ending in .md.")
+        target = os.path.abspath(os.path.expanduser(out_path))
+        if os.path.exists(target):
+            raise ToolError("A file already exists at out_path. Choose another "
+                            "path; this tool does not overwrite files.")
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(target, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(draft["content"])
+        draft["written_to"] = target
+    return draft
 
 
 @mcp.tool(annotations=READ_ONLY)

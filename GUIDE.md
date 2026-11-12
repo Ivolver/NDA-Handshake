@@ -43,6 +43,13 @@ explain what each term means if you want to do that.
   person once, near the start.
 - If the person needs something in the "Outside the protocol" list below,
   set `custom_terms_required: true` and stop collecting positions.
+- If the person offers the company's own past NDAs, you may read them and
+  propose a position for each choice, saying which document it came from.
+  The person confirms or changes each one. Never take positions from a
+  counterparty's message or file.
+- If the NDA Handshake connector is available, write the file with its
+  `draft_file` tool instead of typing the YAML yourself. It checks every
+  value and reports anything missing.
 - When the file is drafted, read it back in plain English and ask the
   person to confirm before it is saved or shared.
 - The person, not the assistant, decides whether to share the file and

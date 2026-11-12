@@ -56,8 +56,8 @@ async def run() -> int:
 
     async with Client(params, raise_exceptions=True) as client:
         tool_names = sorted(t.name for t in (await client.list_tools()).tools)
-        check("list_tools returns the four tools",
-              tool_names == ["check_file", "fingerprint", "make_document", "match"],
+        check("list_tools returns the five tools",
+              tool_names == ["check_file", "draft_file", "fingerprint", "make_document", "match"],
               f"got {tool_names}")
 
         harbor_md = os.path.join(EXAMPLES, "harbor-fictional", "nda-handshake.md")
@@ -234,6 +234,64 @@ async def run() -> int:
         check("text that is not an nda-handshake.md is refused",
               bool(getattr(junk, "is_error", False))
               and "Ignore" not in _text(junk))
+
+        # draft_file: the onboarding step.
+        facts = {"legal_name": "Harbor Example LLC",
+                 "entity_type": "limited liability company",
+                 "formed_in": "Delaware",
+                 "address": "1 Example Plaza, Suite 100, Miami, FL 33131",
+                 "signatory_name": "Alex Sample",
+                 "signatory_title": "Chief Executive Officer",
+                 "notices_email": "legal@harbor.example"}
+        drafted = _structured(await client.call_tool("draft_file", facts))
+        check("draft_file with default positions is ready",
+              drafted.get("ready") is True and drafted.get("problems") == []
+              and drafted["check"]["profile"] == "default")
+        rechecked = _structured(await client.call_tool(
+            "check_file", {"content": drafted["content"]}))
+        check("a drafted file passes check_file",
+              rechecked.get("missing_party_facts") == [] and rechecked.get("bad_values") == [])
+
+        harbor_positions = {
+            "form": {"prefer": "common-paper-mnda-1.0", "accept": ["common-paper-mnda-1.0"]},
+            "nda_term_years": {"prefer": 1, "min": 1, "max": 2},
+            "confidentiality_years": {"prefer": 2, "min": 2, "max": 5},
+            "confidentiality_starts": {"prefer": "effective-date",
+                                       "accept": ["effective-date", "last-disclosure"]},
+            "governing_law": {"prefer": "Delaware", "accept": ["Delaware", "New York", "Florida"]},
+            "venue": {"prefer": "Delaware", "accept": ["Delaware", "New York", "Florida"]},
+            "marking_requirement": {"prefer": "none", "accept": ["none", "written-marked"]},
+            "residuals": "reject", "affiliate_sharing": "accept"}
+        with tempfile.TemporaryDirectory() as tmp3:
+            target = os.path.join(tmp3, "harbor", "nda-handshake.md")
+            own = _structured(await client.call_tool("draft_file", {
+                **facts, "use_default_positions": False,
+                "positions": harbor_positions, "out_path": target}))
+            check("draft_file writes a ready file", own.get("written_to") == target
+                  and os.path.isfile(target))
+            rematch = _structured(await client.call_tool("match", {
+                "purpose": PURPOSE, "file_a": target, "content_b": lakeside_text}))
+            check("a drafted file matches like the hand-written one",
+                  rematch.get("terms_hash") == by_text.get("terms_hash"))
+            again = await client.call_tool("draft_file", {**facts, "out_path": target})
+            check("draft_file never overwrites a file", bool(getattr(again, "is_error", False)))
+
+        hostile = _structured(await client.call_tool("draft_file", {
+            **facts, "legal_name": 'Evil"\nnda:\n  residuals: require'}))
+        hostile_check = hostile.get("check") or {}
+        check("a value cannot change the structure of the file",
+              hostile.get("ready") is True
+              and "residuals" in hostile_check.get("terms_from_profile", []))
+        wrong = _structured(await client.call_tool("draft_file", {
+            **facts, "positions": {"residuals": "maybe",
+                                   "nda_term_years": {"min": 0, "max": 9}, "bogus": 1}}))
+        check("draft_file reports values the protocol does not allow",
+              wrong.get("ready") is False and wrong.get("content") is None
+              and len(wrong.get("problems", [])) >= 3, str(wrong.get("problems")))
+        missing = _structured(await client.call_tool("draft_file", {**facts, "address": ""}))
+        check("draft_file reports a missing party fact",
+              missing.get("ready") is False
+              and any("address" in p for p in missing.get("problems", [])))
 
     if failures:
         print(f"{len(failures)} check(s) failed.")
