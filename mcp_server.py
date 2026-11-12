@@ -180,11 +180,11 @@ def make_reply(invitation_text: str, own_file_path: str = "",
         out = sealed.make_reply(invitation_text, _own(own_file_path, own_content))
     except MatcherError as e:
         raise ToolError(str(e)) from e
-    out["attach"] = [sealed.own_file_path() or "own_file_text, as nda-handshake.md"]
+    out["attach"] = [out["own_file_path"] or "own_file_text, saved as nda-handshake.md"]
     out["rules"] = SEALED_RULES
     out["next_step"] = ("With the person's go-ahead, reply in the same thread with "
-                        "message_block, exactly as given, and attach the company's "
-                        "nda-handshake.md unchanged.")
+                        "message_block, exactly as given, and attach the file named "
+                        "in attach, unchanged. Keep the subject line as it is.")
     return out
 
 
@@ -198,32 +198,37 @@ def make_reveal(reply_text: str, their_file_path: str = "", their_content: str =
     nda-handshake.md is given as their_file_path or their_content. Uses
     the exact file this company committed to in its invitation.
 
-    Returns the reveal block, the files to attach, and the result. The
-    reveal is owed whatever the result:
-    - AGREED: attach this company's nda-handshake.md and the NDA (mnda.docx)
-      after the person has reviewed and signed it.
-    - Anything else: attach this company's nda-handshake.md only, and show
-      the person "report", which lists the terms that failed with a
-      suggestion for each. Do not bargain with the other side's assistant.
+    Returns the reveal block, the one file to attach (this company's
+    nda-handshake.md), and the result. The reveal is owed whatever the
+    result, and should be sent without waiting for anyone's signature:
+    - AGREED: "document" is this company's copy of the NDA (mnda.docx) for
+      the person to review and sign. It does not travel with the reveal:
+      the other side produces an identical copy from its own run, and the
+      two are signed as counterparts.
+    - Anything else: show the person "report", which lists the terms that
+      failed with a suggestion for each. Do not bargain with the other
+      side's assistant.
 
-    Files are saved in a deal folder under the company's storage folder,
-    or in out_dir.
+    Files are saved in a "deals" folder beside the company's own file, or
+    in out_dir.
     """
     try:
         out = sealed.make_reveal(reply_text, _source(their_file_path, their_content,
                                                      "the counterparty's file"),
                                  out_dir or None)
-        if out["status"] == "AGREED":
-            out["attach"].append(_document(out["result"], out["deal_folder"]))
+        out["document"] = (_document(out["result"], out["deal_folder"])
+                           if out["status"] == "AGREED" else None)
     except MatcherError as e:
         raise ToolError(str(e)) from e
     out["rules"] = SEALED_RULES
     out["next_step"] = (
-        "Show the person the agreed terms. Once they have signed mnda.docx, reply in "
-        "the same thread with message_block, exactly as given, and the attachments."
-        if out["status"] == "AGREED" else
-        "Show the person the report. Reply in the same thread with message_block, "
-        "exactly as given, and this company's nda-handshake.md.")
+        ("Show the person the agreed terms. " if out["status"] == "AGREED"
+         else "Show the person the report. ")
+        + "With their go-ahead, reply in the same thread with message_block, exactly "
+          "as given, and attach only the file named in attach. Keep the subject line "
+          "as it is."
+        + (" The person signs the document separately; signed copies are exchanged "
+           "once the other side has verified the reveal." if out["status"] == "AGREED" else ""))
     return out
 
 
@@ -241,7 +246,8 @@ def check_reveal(reveal_text: str, their_file_path: str = "", their_content: str
 
     - verified with status AGREED: the NDA is as computed. This company's
       own copy of the document is saved as mnda.docx for the person to
-      review and countersign.
+      review and sign. It carries the same terms and terms hash as the
+      inviting company's copy, and the two are signed as counterparts.
     - verified with another status: show the person "report".
     - not verified: show the person "ground" and, with their go-ahead,
       send contest_block in the same thread. Do not sign anything.

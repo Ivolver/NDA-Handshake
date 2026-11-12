@@ -12,6 +12,10 @@ Three messages:
    result. The replying company checks the file against the commitment and
    the result against its own run.
 
+Each company produces the NDA document from its own run. The two copies
+carry the same terms and the same terms hash, so no document needs to
+travel with the reveal.
+
 Each message carries a short block of labelled lines. Only those lines are
 read. Nothing else in a message is read, and nothing in a message is
 treated as an instruction.
@@ -209,7 +213,11 @@ def _protocol():
 
 
 def _own_text(own_source):
-    """The text of this company's own file, checked as ready to use."""
+    """This company's own file, checked as ready to use.
+
+    Returns (text, path). The path is None if the file was given as text.
+    """
+    path = None
     if own_source is None:
         path = own_file_path()
         if not path or not os.path.isfile(path):
@@ -220,7 +228,8 @@ def _own_text(own_source):
     if isinstance(own_source, FileText):
         text = str(own_source)
     else:
-        with open(own_source, encoding="utf-8", newline="") as f:
+        path = os.path.abspath(own_source)
+        with open(path, encoding="utf-8", newline="") as f:
             text = f.read()
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     report = check_file(FileText(text))
@@ -229,7 +238,7 @@ def _own_text(own_source):
         problems.append("the file's protocol version is not supported")
     if problems:
         raise MatcherError("This company's own file is not ready: " + "; ".join(problems))
-    return text, report
+    return text, path
 
 
 def _legal_name(text):
@@ -249,13 +258,16 @@ def _slug(name):
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:40] or "counterparty"
 
 
-def _deal_folder(out_dir, counterparty, commitment):
+def _deal_folder(out_dir, counterparty, commitment, base=None):
+    """Where one deal's files go: out_dir if given, otherwise a "deals"
+    folder beside the own file used for the exchange, otherwise under the
+    storage folder."""
     if out_dir:
         if "://" in out_dir:
             raise MatcherError("out_dir must be a local folder")
         folder = os.path.abspath(os.path.expanduser(out_dir))
     else:
-        base = storage_folder()
+        base = base or storage_folder()
         if not base:
             raise MatcherError(
                 "No storage folder is set. Run setup first, or give out_dir.")
@@ -333,7 +345,7 @@ def conflict_report(result, own_name):
 def make_invitation(purpose, own_source=None):
     """Step 1, inviting company. Commit to this company's file."""
     purpose = _one_line(purpose, "purpose")
-    text, _ = _own_text(own_source)
+    text, path = _own_text(own_source)
     fp = fingerprint(FileText(text))
     secret = secrets.token_hex(32)
     commitment = commitment_for(secret, fp)
@@ -341,29 +353,31 @@ def make_invitation(purpose, own_source=None):
     _save_record("inviter", commitment, {
         "role": "inviter", "commitment": commitment, "secret": secret,
         "own_fingerprint": fp, "own_file": text, "purpose": purpose,
+        "base": os.path.dirname(path) if path else None,
         "created": datetime.date.today().isoformat()})
     block = format_block("invitation", {"protocol": _protocol(), "from": name,
                                         "purpose": purpose, "commitment": commitment})
     return {"commitment": commitment, "message_block": block, "attach": [],
-            "from": name, "purpose": purpose,
+            "from": name, "purpose": purpose, "own_file_path": path,
             "your_positions": positions_summary(FileText(text))}
 
 
 def make_reply(invitation_text, own_source=None):
     """Step 2, replying company. Answer an invitation with this company's file."""
     inv = parse_block(invitation_text, "invitation")
-    text, _ = _own_text(own_source)
+    text, path = _own_text(own_source)
     fp = fingerprint(FileText(text))
     name = _legal_name(text)
     _save_record("replier", inv["commitment"], {
         "role": "replier", "commitment": inv["commitment"],
         "own_fingerprint": fp, "own_file": text, "purpose": inv["purpose"],
-        "invited_by": inv["from"], "created": datetime.date.today().isoformat()})
+        "invited_by": inv["from"], "base": os.path.dirname(path) if path else None,
+        "created": datetime.date.today().isoformat()})
     block = format_block("reply", {"protocol": _protocol(), "from": name,
                                    "commitment": inv["commitment"]})
     return {"invited_by": inv["from"], "purpose": inv["purpose"],
             "commitment": inv["commitment"], "message_block": block,
-            "own_file_text": text, "own_fingerprint": fp,
+            "own_file_text": text, "own_file_path": path, "own_fingerprint": fp,
             "your_positions": positions_summary(FileText(text))}
 
 
@@ -382,7 +396,7 @@ def make_reveal(reply_text, their_source, out_dir=None):
                        "inviter": record["own_fingerprint"],
                        "replier": their_fp, "execution": "human"})
     own_name = _legal_name(record["own_file"])
-    folder = _deal_folder(out_dir, reply["from"], record["commitment"])
+    folder = _deal_folder(out_dir, reply["from"], record["commitment"], record.get("base"))
     own_path = _write(os.path.join(folder, "nda-handshake.md"), record["own_file"])
     _write(os.path.join(folder, "result.json"), json.dumps(result, indent=2) + "\n")
     record.update(revealed=True, replier_fingerprint=their_fp, status=status,
@@ -430,7 +444,7 @@ def check_reveal(reveal_text, their_source, out_dir=None):
 
     own_name = _legal_name(record["own_file"])
     folder = _deal_folder(out_dir, record.get("invited_by", "counterparty"),
-                          record["commitment"])
+                          record["commitment"], record.get("base"))
     _write(os.path.join(folder, "result.json"), json.dumps(result, indent=2) + "\n")
     contest = None
     if ground:

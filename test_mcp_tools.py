@@ -344,8 +344,10 @@ async def run() -> int:
         check("make_reveal agrees and writes the documents to a deal folder",
               reveal.get("status") == "AGREED"
               and reveal.get("result", {}).get("terms_hash") == by_text.get("terms_hash")
-              and all(os.path.isfile(p) for p in reveal.get("attach", []))
-              and reveal["attach"][-1].endswith("mnda.docx")
+              and len(reveal.get("attach", [])) == 1
+              and reveal["attach"][0].endswith("nda-handshake.md")
+              and os.path.isfile(reveal["attach"][0])
+              and os.path.isfile(reveal.get("document") or "")
               and reveal["deal_folder"].startswith(os.path.join(storage, "deals")))
         verified = _structured(await client.call_tool("check_reveal", {
             "reveal_text": reveal["message_block"],
@@ -359,6 +361,27 @@ async def run() -> int:
               tampered.get("verified") is False
               and tampered.get("ground") == "commitment-mismatch"
               and tampered.get("document") is None)
+        # A second company on the same machine keeps its deals beside its own file.
+        other = os.path.join(test_home, "other-company")
+        os.makedirs(other)
+        other_file = os.path.join(other, "nda-handshake.md")
+        with open(other_file, "w", encoding="utf-8") as fh:
+            fh.write(lakeside_text)
+        inv2 = _structured(await client.call_tool("make_invitation", {"purpose": PURPOSE}))
+        reply2 = _structured(await client.call_tool("make_reply", {
+            "invitation_text": inv2["message_block"], "own_file_path": other_file}))
+        check("make_reply names the file that was actually used",
+              reply2.get("attach") == [other_file])
+        reveal2 = _structured(await client.call_tool("make_reveal", {
+            "reply_text": reply2["message_block"], "their_file_path": other_file}))
+        checked2 = _structured(await client.call_tool("check_reveal", {
+            "reveal_text": reveal2["message_block"],
+            "their_file_path": reveal2["attach"][0]}))
+        check("each company's deal folder sits beside its own file",
+              checked2.get("verified") is True
+              and checked2["deal_folder"].startswith(os.path.join(other, "deals"))
+              and reveal2["deal_folder"].startswith(os.path.join(storage, "deals")))
+
         unknown = await client.call_tool("make_reveal", {
             "reply_text": reply["message_block"].replace(
                 invitation["commitment"], "a" * 64),

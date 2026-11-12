@@ -130,12 +130,14 @@ Running a sealed exchange (see `SPEC.md`):
 - `make_reply(invitation_text)`: step 2, for the replying company. Returns
   the reply block and the company's file to attach.
 - `make_reveal(reply_text, their file)`: step 3, for the inviting company.
-  Runs the match and returns the reveal block, the files to attach and,
-  when agreed, the signable NDA. When not agreed, returns a report of the
-  failed terms with a suggestion for the company's own human.
+  Runs the match and returns the reveal block, the company's file to
+  attach and, when agreed, the company's copy of the signable NDA. When
+  not agreed, returns a report of the failed terms with a suggestion for
+  the company's own human.
 - `check_reveal(reveal_text, their file)`: step 4, for the replying
   company. Verifies the commitment and the receipt against its own run,
-  and returns a contest block if anything does not match.
+  writes that company's own copy of the NDA, and returns a contest block
+  if anything does not match.
 
 Working with files directly:
 

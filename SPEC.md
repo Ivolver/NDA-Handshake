@@ -262,7 +262,7 @@ are fixed.
 2. **Reply.** The other company sends its own file.
 3. **Reveal.** The inviting company runs the match and sends its file, the
    secret value behind its commitment, and the result. If the result is
-   `AGREED` it also sends the NDA and a receipt.
+   `AGREED` it also sends a receipt.
 4. **Check.** The replying company confirms that the revealed file matches
    the commitment and that the result matches its own run. It should do
    this promptly, and in any event within one business day.
@@ -294,8 +294,7 @@ Reply, with the replying company's `nda-handshake.md` attached:
     from: <legal name of the replying company>
     commitment: <the invitation's commitment>
 
-Reveal, with the inviting company's `nda-handshake.md` attached and, when
-agreed, the NDA:
+Reveal, with the inviting company's `nda-handshake.md` attached:
 
     nda-handshake: reveal
     protocol: 0.5
@@ -336,6 +335,12 @@ Contest, sent only if the check fails:
   reports the failed terms to its own human and may suggest a resolution.
   Assistants do not bargain with each other. If a person approves changed
   positions for the deal, the companies run a new sealed exchange.
+- Each company produces the NDA document from its own run. The two
+  copies carry the same terms and the same terms hash, so the document
+  does not travel with the reveal. Where the companies sign by hand, they
+  sign as counterparts and exchange signed copies after the check.
+- The messages are linked by the commitment, not by the email thread, so
+  an exchange still works if an email program fails to thread a message.
 - A sealed exchange is fair, not private. After the reveal each company
   has seen the other's positions.
 
