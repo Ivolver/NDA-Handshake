@@ -1,6 +1,6 @@
-# NDA Handshake (protocol v0.4)
+# NDA Handshake (protocol v0.5)
 
-Status: experimental. Protocol v0.4.
+Status: experimental. Protocol v0.5.
 
 Two companies exchange `nda-handshake.md` files. A matcher works out the NDA terms
 both can accept and drafts the cover page. Humans sign.
@@ -42,6 +42,13 @@ and New York, and the result is New York because both are formed there):
     python3 match.py examples/lakeside-fictional/nda-handshake.md examples/midtown-fictional/nda-handshake.md \
         --purpose "Evaluating a potential business relationship" \
         --out out/lakeside-midtown
+
+To see the default positions (two companies that state no positions of
+their own and simply set `profile: default`):
+
+    python3 match.py examples/pioneer-fictional/nda-handshake.md examples/quarry-fictional/nda-handshake.md \
+        --purpose "Evaluating a potential business relationship" \
+        --out out/pioneer-quarry
 
 Every result includes a `summary` showing, term by term, both sides'
 positions, the outcome and the rule that produced it.

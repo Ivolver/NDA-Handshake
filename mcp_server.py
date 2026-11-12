@@ -77,8 +77,9 @@ def check_file(file_path: str) -> dict[str, Any]:
     body is never read or returned. Returns the file's fingerprint, the
     declared protocol version and whether it is supported, whether
     custom_terms_required is set, the missing party facts, the values that
-    are not on the protocol's allowed lists, and the variables left
-    unstated. Local files only; no network. Reports what a human should
+    are not on the protocol's allowed lists, the variables left
+    unstated, and whether the file uses the protocol's default positions
+    (profile: default) and for which terms. Local files only; no network. Reports what a human should
     fix; nothing is signed, sent, or published.
     """
     try:

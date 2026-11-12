@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NDA Handshake matcher, protocol v0.4
+"""NDA Handshake matcher, protocol v0.5
 
 Reads two nda-handshake.md files, intersects their NDA positions, and writes
 agreed terms (or a list of conflicts) plus a draft cover page.
@@ -17,7 +17,7 @@ import sys
 
 import yaml
 
-PROTOCOL_VERSIONS = {"0.4"}
+PROTOCOL_VERSIONS = {"0.5"}
 MAX_LEN = 200
 
 
@@ -42,6 +42,50 @@ US_STATES = [
     "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah", "Vermont",
     "Virginia", "Washington", "West Virginia", "Wisconsin", "Wyoming",
 ]
+
+# Ready-made positions a company can adopt with one line, "profile: default".
+# Governing law and venue are added per company: its own state of formation
+# first, then Delaware. Any term the company states itself overrides these.
+PROFILES = {
+    "default": {
+        "form": {"prefer": "common-paper-mnda-1.0", "accept": ["common-paper-mnda-1.0"]},
+        "nda_term_years": {"prefer": 1, "min": 1, "max": 3},
+        "confidentiality_years": {"prefer": 2, "min": 1, "max": 5},
+        "confidentiality_starts": {"prefer": "effective-date",
+                                   "accept": ["effective-date", "last-disclosure"]},
+        "marking_requirement": {"prefer": "none", "accept": ["none"]},
+        "residuals": "reject",
+        "affiliate_sharing": "accept",
+    },
+}
+PROFILE_FALLBACK_STATE = "Delaware"
+
+
+def apply_profile(nda, formed_in, label, notes):
+    """Return (positions, defaulted): the nda block with its profile filled in.
+
+    defaulted lists the terms whose position came from the profile.
+    """
+    name = clean(nda.get("profile"))
+    if name is None:
+        return nda, set()
+    if name not in PROFILES:
+        notes.append(f"{label}: profile '{name}' is not defined; ignored")
+        return nda, set()
+    canon_states = {state.lower(): state for state in US_STATES}
+    home = canon_states.get((formed_in or "").lower())
+    states = [home, PROFILE_FALLBACK_STATE] if home and home != PROFILE_FALLBACK_STATE \
+        else [PROFILE_FALLBACK_STATE]
+    defaults = dict(PROFILES[name])
+    defaults["governing_law"] = {"prefer": states[0], "accept": list(states)}
+    defaults["venue"] = {"prefer": states[0], "accept": list(states)}
+    merged, defaulted = dict(nda), set()
+    for term, position in defaults.items():
+        if nda.get(term) is None:
+            merged[term] = position
+            defaulted.add(term)
+    return merged, defaulted
+
 
 # Fixed wording for each change to the form's Standard Terms. This text is part
 # of the protocol (see SPEC.md, "Standard change text"), so every
@@ -423,7 +467,9 @@ def check_file(path):
     unstated = []
 
     # Reuse the matcher's own entity logic to collect missing party facts.
-    pick_entity(data, None, "Party", missing_party_facts)
+    party = pick_entity(data, None, "Party", missing_party_facts)
+    profile = clean(nda.get("profile"))
+    nda, defaulted = apply_profile(nda, party["formed_in"], "Party", bad_values)
 
     list_checks = [
         ("form", FORMS),
@@ -460,6 +506,8 @@ def check_file(path):
         "missing_party_facts": missing_party_facts,
         "bad_values": bad_values,
         "unstated_variables": unstated,
+        "profile": profile if profile in PROFILES else None,
+        "terms_from_profile": sorted(defaulted),
     }
 
 
@@ -494,6 +542,8 @@ def run_match(file_a, file_b, purpose, entity_a=None, entity_b=None):
     conflicts, missing, open_items, notes, trace = [], [], [], [], []
     party_a = pick_entity(a, entity_a, "Party A", missing)
     party_b = pick_entity(b, entity_b, "Party B", missing)
+    na, defaulted_a = apply_profile(na, party_a["formed_in"], "Party A", notes)
+    nb, defaulted_b = apply_profile(nb, party_b["formed_in"], "Party B", notes)
 
     # A state both parties are formed in is the first principled way to break a tie.
     canon_states = {state.lower(): state for state in US_STATES}
@@ -536,6 +586,13 @@ def run_match(file_a, file_b, purpose, entity_a=None, entity_b=None):
                          how="Neither side stated a position, so the form's own rule applies")
     for t in TOGGLES:
         terms[t] = match_toggle(t, na.get(t), nb.get(t), conflicts, notes, trace)
+
+    # Mark positions that came from a profile, so the summary shows who chose what.
+    for entry in trace:
+        if entry["term"] in defaulted_a:
+            entry["a"] += " (default)"
+        if entry["term"] in defaulted_b:
+            entry["b"] += " (default)"
 
     # The summary shows how each term was reached. It is not part of the terms or the hash.
     # Like the parties, it is ordered by legal name, so file order does not change it.

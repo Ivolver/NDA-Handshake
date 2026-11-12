@@ -1,5 +1,5 @@
 {
-  "protocol_version": "0.4",
+  "protocol_version": "0.5",
   "purpose": "Evaluating a potential business relationship",
   "match_cases": [
     {
@@ -9,7 +9,7 @@
         "lakeside-fictional/nda-handshake.md"
       ],
       "status": "AGREED",
-      "terms_hash": "742c9db991529d5c68f9cbc9b8d472bd37bb56572a3ee28a21ef8ba9b70f94f2",
+      "terms_hash": "f7af24d311501be9564b655848d85c7c400f4a5004fb1fa6946a3067ff4351bc",
       "governing_law": "Delaware",
       "venue": "Delaware"
     },
@@ -20,7 +20,7 @@
         "harbor-fictional/nda-handshake.md"
       ],
       "status": "AGREED",
-      "terms_hash": "742c9db991529d5c68f9cbc9b8d472bd37bb56572a3ee28a21ef8ba9b70f94f2",
+      "terms_hash": "f7af24d311501be9564b655848d85c7c400f4a5004fb1fa6946a3067ff4351bc",
       "governing_law": "Delaware",
       "venue": "Delaware"
     },
@@ -58,9 +58,45 @@
         "midtown-fictional/nda-handshake.md"
       ],
       "status": "AGREED",
-      "terms_hash": "f5a3c2cef8d7e9d9e4c588c638b6e5c038fb5f8faf05df19a5eeb279bea935e5",
+      "terms_hash": "ddaf92c899e2c0824505c96374533ab3628a404668defc7781c7abba844838d6",
       "governing_law": "New York",
       "venue": "New York"
+    },
+    {
+      "name": "Pioneer and Quarry: both on default positions, same state",
+      "files": [
+        "pioneer-fictional/nda-handshake.md",
+        "quarry-fictional/nda-handshake.md"
+      ],
+      "status": "AGREED",
+      "terms_hash": "9b23ddb17021fb7baa6cdbbebd31961eff5bda6450211b9b892b00d50c42d974",
+      "governing_law": "Texas",
+      "venue": "Texas"
+    },
+    {
+      "name": "Pioneer and Harbor: default positions meet stated ones",
+      "files": [
+        "pioneer-fictional/nda-handshake.md",
+        "harbor-fictional/nda-handshake.md"
+      ],
+      "status": "AGREED",
+      "terms_hash": "7a7be5132e56ca9e02a889d35d1852a9cd0fd4b80c26a6cccb6bd4ec6a1aee13",
+      "governing_law": "Delaware",
+      "venue": "Delaware"
+    },
+    {
+      "name": "Pioneer and Northwind: default positions reject a required residuals clause",
+      "files": [
+        "pioneer-fictional/nda-handshake.md",
+        "northwind-fictional/nda-handshake.md"
+      ],
+      "status": "CONFLICTS",
+      "conflicts": [
+        "confidentiality_years",
+        "governing_law",
+        "venue",
+        "residuals"
+      ]
     },
     {
       "name": "Outlier is out of protocol",
@@ -72,10 +108,12 @@
     }
   ],
   "fingerprints": {
-    "harbor-fictional/nda-handshake.md": "32d2b4093847e5c811ab7ad2ecc5e4af2c860ab176b9a441e8a3c8220d6cf96e",
-    "lakeside-fictional/nda-handshake.md": "2652fc1abb9335f1340278756deebe95df68a8b96f6ddbe35937b22f16635a1b",
-    "midtown-fictional/nda-handshake.md": "f4afdf02c079a5775e390823a49ab6b19d70dd611ec69da63608ccb2d7a43f53",
-    "northwind-fictional/nda-handshake.md": "62aad459748358dc6f037c2b8ff54b92e9ae71309dbf591de303783e29c103db",
-    "outlier-fictional/nda-handshake.md": "5c9f777123f081ea586ca9e99dc8a6b81fbc1dc31c3c76281271741b25c5285d"
+    "harbor-fictional/nda-handshake.md": "d0ec36e96f52c153b2758ed4e958688c3790e73d53025360a5d6cd23919b3b1a",
+    "lakeside-fictional/nda-handshake.md": "8b919df4264ef3985746378d9dc821598eb21321a7d016fe24b96f94d9734cf2",
+    "midtown-fictional/nda-handshake.md": "09955d967a5004cce1f8cba623c8a2bd5ef4e11e5c2664cda782dae1ea4f2218",
+    "northwind-fictional/nda-handshake.md": "4ef8ce4164ff1234568ef51a3f894f2879cc83024f81fb875caec7e59051c137",
+    "outlier-fictional/nda-handshake.md": "818de1d6a0a30d8df8b69a83714740914c29e54caa479bd933baa35fa62d671f",
+    "pioneer-fictional/nda-handshake.md": "2d4b2ca7c06dc98112e8601ec0479a2ede7344d00bebb9b4445e4abefbe94662",
+    "quarry-fictional/nda-handshake.md": "3ec752febb829cf0b96fab58a10a30156bd6f2bcb25b645daaafd918f4013a3a"
   }
 }

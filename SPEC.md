@@ -1,4 +1,4 @@
-# NDA Handshake protocol: spec v0.4 (draft)
+# NDA Handshake protocol: spec v0.5 (draft)
 
 Copyright 2026 Ultra Vires Labs LLC. This specification is licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
 
@@ -39,7 +39,7 @@ An `nda-handshake.md` has two parts:
 ## Fields
 
 ### nda_handshake
-The protocol version the file follows, for example `"0.4"`.
+The protocol version the file follows, for example `"0.5"`.
 
 ### company
 - `name`: common name
@@ -89,6 +89,35 @@ What the less obvious ones mean:
   memory. Not in the form; added as a change.
 - `affiliate_sharing`: each side may share with its affiliates. Not in the
   form; added as a change.
+
+### nda.profile: the default positions
+
+A company that wants reasonable terms without making nine choices sets
+`profile: default`. The matcher then uses the positions below for every
+term the file does not state itself. A term the file does state overrides
+the default for that term.
+
+| Term | Default position |
+|---|---|
+| `form` | `common-paper-mnda-1.0` |
+| `nda_term_years` | prefers 1, accepts 1 to 3 |
+| `confidentiality_years` | prefers 2, accepts 1 to 5 |
+| `confidentiality_starts` | prefers `effective-date`, accepts either |
+| `governing_law` and `venue` | prefers the company's own state of formation, also accepts Delaware |
+| `marking_requirement` | `none` |
+| `residuals` | `reject` |
+| `affiliate_sharing` | `accept` |
+
+If the company is not formed in a US state, or is formed in Delaware, its
+governing law and venue default is Delaware alone.
+
+Two companies that both use the default positions always reach `AGREED`:
+1-year term, 2-year confidentiality from the Effective Date, no marking
+requirement and no changes to the Standard Terms, governed by their shared
+state of formation or otherwise by Delaware.
+
+The default positions are part of the protocol and change only with a new
+protocol version. `default` is the only profile defined.
 
 ### nda.custom_terms_required
 Set to `true` if the company needs any excluded term. The matcher then
@@ -151,6 +180,9 @@ than two parties; individuals as parties.
   require / accept / reject element counts as `accept`, and a silent
   `marking_requirement` on both sides means `none`.
 - **Values off the closed lists** are ignored and noted in the result.
+- **Profiles are applied first.** A file's `profile` is expanded into
+  positions before any rule above runs, so a term covered by the profile is
+  not silent. The summary marks such positions "(default)".
 
 ## Standard change text
 
@@ -237,6 +269,11 @@ Machine-readable JSON Schemas for the file's fields and for a matcher's
 result are published in the `schema/` folder. They restate this spec for
 software and do not add rules. If a schema and this spec disagree, the spec
 governs.
+
+## Changes from v0.4
+
+- New `profile: default`, a ready-made set of positions a company can adopt
+  with one line.
 
 ## Changes from v0.3
 

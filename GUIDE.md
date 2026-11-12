@@ -10,7 +10,29 @@ helping a person fill it in. It is general information, not legal advice.
 For Common Paper's own commentary on the form, see the annotated agreement
 at https://commonpaper.com/standards/mutual-nda/.
 
+## The fast path: default positions
+
+If you want reasonable terms and no decisions, use the protocol's default
+positions. Your file then needs only your company's facts and one line:
+
+    nda:
+      profile: default
+
+The defaults are: a 1-year NDA term (up to 3 accepted), a 2-year
+confidentiality period (1 to 5 accepted) counted from the Effective Date,
+your own state's law and courts with Delaware as the alternative, no
+marking requirement, no residuals clause, and affiliate sharing only if
+the other side requires it.
+
+Two companies on the defaults always agree. You can still set any single
+term yourself and keep the defaults for the rest. The nine choices below
+explain what each term means if you want to do that.
+
 ## For an AI assistant
+
+- Offer the default positions first. Explain them in two or three
+  sentences and ask whether the person wants them as they are, wants to
+  change particular terms, or wants to go through all nine choices.
 
 - Ask about one choice at a time, in the order below. Explain it in a
   sentence or two before asking.
@@ -62,7 +84,7 @@ usual signer as the default.
 ## The nine choices
 
 ### 1. Standard form (`form`)
-Which standard NDA you will sign. Protocol v0.4 supports one: the Common
+Which standard NDA you will sign. Protocol v0.5 supports one: the Common
 Paper Mutual NDA, version 1.0. Read its Standard Terms once before you
 publish a file, because they apply to every NDA you sign this way.
 

@@ -1,5 +1,5 @@
 ---
-nda_handshake: "0.4"
+nda_handshake: "0.5"
 
 company:
   name: Harbor Example (fictional)

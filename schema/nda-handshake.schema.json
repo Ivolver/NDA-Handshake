@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/Ivolver/NDA-Handshake/main/schema/nda-handshake.schema.json",
-  "title": "nda-handshake.md fields, NDA Handshake protocol v0.4",
+  "title": "nda-handshake.md fields, NDA Handshake protocol v0.5",
   "description": "The YAML block at the top of an nda-handshake.md file. SPEC.md is the authority; this schema is a machine-readable aid. Unknown fields are allowed and ignored.",
   "type": "object",
   "required": [
@@ -14,7 +14,7 @@
     "nda_handshake": {
       "description": "Protocol version the file follows.",
       "enum": [
-        "0.4"
+        "0.5"
       ]
     },
     "company": {
@@ -97,6 +97,12 @@
         "custom_terms_required": {
           "type": "boolean",
           "description": "True if the company needs a term the protocol excludes."
+        },
+        "profile": {
+          "enum": [
+            "default"
+          ],
+          "description": "Adopt the protocol's default positions for every term the file does not state itself."
         },
         "form": {
           "type": "object",
