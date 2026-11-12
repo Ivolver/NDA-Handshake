@@ -1,5 +1,5 @@
 ---
-nda_handshake: "0.2"
+nda_handshake: "0.3"
 
 company:
   name: Outlier Example (fictional)

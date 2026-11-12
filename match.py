@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NDA Handshake matcher, protocol v0.2
+"""NDA Handshake matcher, protocol v0.3
 
 Reads two nda-handshake.md files, intersects their NDA positions, and writes
 agreed terms (or a list of conflicts) plus a draft cover page.
@@ -17,15 +17,15 @@ import sys
 
 import yaml
 
-PROTOCOL_VERSIONS = {"0.2"}
+PROTOCOL_VERSIONS = {"0.3"}
 MAX_LEN = 200
 
 # The closed lists. Anything not on these lists is outside the protocol.
 FORMS = ["common-paper-mnda-1.0"]
 MARKING = ["none", "written-marked", "written-marked-oral-confirmed"]
 RANGES = {"nda_term_years": (1, 5), "confidentiality_years": (1, 10)}
-TOGGLES = ["trade_secret_tail", "residuals", "affiliate_sharing",
-           "existence_of_talks_confidential"]
+CONF_STARTS = ["effective-date", "last-disclosure"]
+TOGGLES = ["residuals", "affiliate_sharing"]
 TOGGLE_POSITIONS = {"require", "accept", "reject"}
 US_STATES = [
     "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado",
@@ -213,9 +213,14 @@ def render(terms, digest, status):
     def show(value, suffix=""):
         return f"{value}{suffix}" if value is not None else "OPEN: to be agreed"
 
-    conf = show(terms["confidentiality_years"], " year(s) from Effective Date")
-    if terms["trade_secret_tail"]:
-        conf += "; trade secrets stay protected for as long as they remain trade secrets"
+    start = {"effective-date": "the Effective Date",
+             "last-disclosure": "the date of last disclosure"}.get(terms["confidentiality_starts"])
+    if terms["confidentiality_years"] is None or start is None:
+        conf = "OPEN: to be agreed"
+    else:
+        # The trade secret language is part of the standard form, not a variable.
+        conf = (f"{terms['confidentiality_years']} year(s) from {start}; trade secrets "
+                "stay protected for as long as they remain trade secrets under applicable law")
 
     mods = []
     if terms["marking_requirement"] == "written-marked":
@@ -227,8 +232,6 @@ def render(terms, digest, status):
         mods.append("Residuals clause included")
     if terms["affiliate_sharing"]:
         mods.append("Each party may share Confidential Information with its affiliates")
-    if terms["existence_of_talks_confidential"]:
-        mods.append("The existence of the parties' discussions is Confidential Information")
 
     venue = terms["venue"]
     lines = [
@@ -335,6 +338,9 @@ def main():
         "confidentiality_years": match_range(
             "confidentiality_years", na.get("confidentiality_years"),
             nb.get("confidentiality_years"), conflicts, open_items, notes),
+        "confidentiality_starts": match_choice(
+            "confidentiality_starts", na.get("confidentiality_starts"),
+            nb.get("confidentiality_starts"), CONF_STARTS, conflicts, open_items, notes),
         "governing_law": match_choice("governing_law", na.get("governing_law"),
                                       nb.get("governing_law"), US_STATES,
                                       conflicts, open_items, notes),

@@ -1,5 +1,5 @@
 ---
-nda_handshake: "0.2"
+nda_handshake: "0.3"
 
 company:
   name: Northwind Example (fictional)
@@ -25,7 +25,7 @@ nda:
     accept: [common-paper-mnda-1.0]
   nda_term_years: {prefer: 2, min: 1, max: 3}
   confidentiality_years: {prefer: 7, min: 6, max: 10}
-  trade_secret_tail: accept
+  confidentiality_starts: {prefer: last-disclosure, accept: [last-disclosure]}
   governing_law:
     prefer: California
     accept: [California]
@@ -37,7 +37,6 @@ nda:
     accept: [none]
   residuals: require
   affiliate_sharing: accept
-  existence_of_talks_confidential: accept
 ---
 
 # Northwind Example Inc.
