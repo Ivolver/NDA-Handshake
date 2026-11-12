@@ -1,0 +1,377 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Ivolver/NDA-Handshake/main/schema/result.schema.json",
+  "title": "Handshake result, NDA Handshake protocol v0.4",
+  "description": "The result.json written by a matcher. The terms object is what the terms hash covers; the summary is a record only.",
+  "type": "object",
+  "required": [
+    "status",
+    "file_fingerprints"
+  ],
+  "properties": {
+    "status": {
+      "enum": [
+        "AGREED",
+        "AGREED_PENDING_INFO",
+        "CONFLICTS",
+        "OUT_OF_PROTOCOL",
+        "VERSION_MISMATCH"
+      ]
+    },
+    "file_fingerprints": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "terms_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "terms": {
+      "type": "object",
+      "properties": {
+        "protocol_version": {
+          "enum": [
+            "0.4"
+          ]
+        },
+        "parties": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "legal_name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "entity_type": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "formed_in": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "address": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "signatory_name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "signatory_title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "notice_email": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "purpose": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "direction": {
+          "const": "mutual"
+        },
+        "form": {
+          "enum": [
+            "common-paper-mnda-1.0",
+            null
+          ]
+        },
+        "nda_term_years": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "confidentiality_years": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "confidentiality_starts": {
+          "enum": [
+            "effective-date",
+            "last-disclosure",
+            null
+          ]
+        },
+        "governing_law": {
+          "enum": [
+            "Alabama",
+            "Alaska",
+            "Arizona",
+            "Arkansas",
+            "California",
+            "Colorado",
+            "Connecticut",
+            "Delaware",
+            "District of Columbia",
+            "Florida",
+            "Georgia",
+            "Hawaii",
+            "Idaho",
+            "Illinois",
+            "Indiana",
+            "Iowa",
+            "Kansas",
+            "Kentucky",
+            "Louisiana",
+            "Maine",
+            "Maryland",
+            "Massachusetts",
+            "Michigan",
+            "Minnesota",
+            "Mississippi",
+            "Missouri",
+            "Montana",
+            "Nebraska",
+            "Nevada",
+            "New Hampshire",
+            "New Jersey",
+            "New Mexico",
+            "New York",
+            "North Carolina",
+            "North Dakota",
+            "Ohio",
+            "Oklahoma",
+            "Oregon",
+            "Pennsylvania",
+            "Rhode Island",
+            "South Carolina",
+            "South Dakota",
+            "Tennessee",
+            "Texas",
+            "Utah",
+            "Vermont",
+            "Virginia",
+            "Washington",
+            "West Virginia",
+            "Wisconsin",
+            "Wyoming",
+            null
+          ]
+        },
+        "venue": {
+          "enum": [
+            "Alabama",
+            "Alaska",
+            "Arizona",
+            "Arkansas",
+            "California",
+            "Colorado",
+            "Connecticut",
+            "Delaware",
+            "District of Columbia",
+            "Florida",
+            "Georgia",
+            "Hawaii",
+            "Idaho",
+            "Illinois",
+            "Indiana",
+            "Iowa",
+            "Kansas",
+            "Kentucky",
+            "Louisiana",
+            "Maine",
+            "Maryland",
+            "Massachusetts",
+            "Michigan",
+            "Minnesota",
+            "Mississippi",
+            "Missouri",
+            "Montana",
+            "Nebraska",
+            "Nevada",
+            "New Hampshire",
+            "New Jersey",
+            "New Mexico",
+            "New York",
+            "North Carolina",
+            "North Dakota",
+            "Ohio",
+            "Oklahoma",
+            "Oregon",
+            "Pennsylvania",
+            "Rhode Island",
+            "South Carolina",
+            "South Dakota",
+            "Tennessee",
+            "Texas",
+            "Utah",
+            "Vermont",
+            "Virginia",
+            "Washington",
+            "West Virginia",
+            "Wisconsin",
+            "Wyoming",
+            null
+          ]
+        },
+        "marking_requirement": {
+          "enum": [
+            "none",
+            "written-marked",
+            "written-marked-oral-confirmed"
+          ]
+        },
+        "residuals": {
+          "type": "boolean"
+        },
+        "affiliate_sharing": {
+          "type": "boolean"
+        }
+      }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "missing_info": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "open_items": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "party_a",
+        "party_b",
+        "terms"
+      ],
+      "properties": {
+        "party_a": {
+          "type": "string"
+        },
+        "party_b": {
+          "type": "string"
+        },
+        "terms": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "term",
+              "a",
+              "b",
+              "result",
+              "outcome",
+              "how"
+            ],
+            "properties": {
+              "term": {
+                "type": "string"
+              },
+              "a": {
+                "type": "string"
+              },
+              "b": {
+                "type": "string"
+              },
+              "result": {
+                "type": [
+                  "string",
+                  "integer",
+                  "boolean",
+                  "null"
+                ]
+              },
+              "outcome": {
+                "enum": [
+                  "MATCHED",
+                  "MIDPOINT",
+                  "BEST_SHARED",
+                  "TIE_BREAK",
+                  "ONE_SIDED",
+                  "REQUIRED",
+                  "NOT_INCLUDED",
+                  "FORM_DEFAULT",
+                  "CONFLICT",
+                  "OPEN"
+                ]
+              },
+              "how": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "declared_versions": {
+      "type": "array"
+    },
+    "flagged_by": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "AGREED",
+              "AGREED_PENDING_INFO",
+              "CONFLICTS"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "terms_hash",
+          "terms",
+          "summary"
+        ]
+      }
+    }
+  ]
+}

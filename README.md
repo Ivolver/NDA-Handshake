@@ -62,6 +62,18 @@ Page filled in with the agreed terms, the Standard Terms attached for
 convenience, and a one-page handshake record that is not part of the
 agreement. The record shows how each term was reached. Any other status produces no document.
 
+## Schemas
+
+The `schema/` folder holds JSON Schemas for the two data formats:
+`nda-handshake.schema.json` for the fields at the top of an
+`nda-handshake.md`, and `result.schema.json` for a matcher's `result.json`.
+Use them to validate a file or a result in any language. `SPEC.md` remains
+the authority.
+
+The Word document carries its terms hash and protocol version in its
+document properties, so software that receives only the document can find
+the matching result.
+
 ## Check an implementation
 
 `examples/expected-results.json` lists each example pair with its expected
@@ -71,7 +83,9 @@ check this matcher against it:
     python3 check_examples.py
 
 Anyone building another implementation of the protocol can run the same
-example files and compare against the same list.
+example files and compare against the same list. Install `jsonschema`
+(optional) to also validate every example and every generated result
+against the schemas in `schema/`.
 
 ## Use with an AI assistant
 

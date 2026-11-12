@@ -231,6 +231,13 @@ words. If none applies, the field reads "None."
 - `confidentiality_starts` is a new variable.
 - Open-ended NDA terms and perpetual confidentiality are listed as excluded.
 
+## Schemas
+
+Machine-readable JSON Schemas for the file's fields and for a matcher's
+result are published in the `schema/` folder. They restate this spec for
+software and do not add rules. If a schema and this spec disagree, the spec
+governs.
+
 ## Changes from v0.3
 
 - Ties between list options are broken on principle before alphabetical

@@ -1,0 +1,534 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Ivolver/NDA-Handshake/main/schema/nda-handshake.schema.json",
+  "title": "nda-handshake.md fields, NDA Handshake protocol v0.4",
+  "description": "The YAML block at the top of an nda-handshake.md file. SPEC.md is the authority; this schema is a machine-readable aid. Unknown fields are allowed and ignored.",
+  "type": "object",
+  "required": [
+    "nda_handshake",
+    "entities",
+    "signatory",
+    "notices"
+  ],
+  "properties": {
+    "nda_handshake": {
+      "description": "Protocol version the file follows.",
+      "enum": [
+        "0.4"
+      ]
+    },
+    "company": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "website": {
+          "type": "string"
+        }
+      }
+    },
+    "entities": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "legal_name",
+          "entity_type",
+          "formed_in",
+          "address"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "default": {
+            "type": "boolean"
+          },
+          "legal_name": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "entity_type": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "formed_in": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "address": {
+            "type": "string",
+            "maxLength": 200
+          }
+        }
+      }
+    },
+    "signatory": {
+      "type": "object",
+      "required": [
+        "name",
+        "title"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        }
+      }
+    },
+    "notices": {
+      "type": "object",
+      "required": [
+        "email"
+      ],
+      "properties": {
+        "email": {
+          "type": "string"
+        }
+      }
+    },
+    "nda": {
+      "type": "object",
+      "properties": {
+        "custom_terms_required": {
+          "type": "boolean",
+          "description": "True if the company needs a term the protocol excludes."
+        },
+        "form": {
+          "type": "object",
+          "description": "A preferred option plus every option the company accepts.",
+          "properties": {
+            "prefer": {
+              "enum": [
+                "common-paper-mnda-1.0"
+              ]
+            },
+            "accept": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "common-paper-mnda-1.0"
+                ]
+              },
+              "uniqueItems": true
+            }
+          },
+          "anyOf": [
+            {
+              "required": [
+                "prefer"
+              ]
+            },
+            {
+              "required": [
+                "accept"
+              ]
+            }
+          ]
+        },
+        "nda_term_years": {
+          "type": "object",
+          "description": "Whole years, 1 to 5.",
+          "properties": {
+            "prefer": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5
+            },
+            "min": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5
+            }
+          },
+          "required": [
+            "min",
+            "max"
+          ]
+        },
+        "confidentiality_years": {
+          "type": "object",
+          "description": "Whole years, 1 to 10.",
+          "properties": {
+            "prefer": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10
+            },
+            "min": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10
+            }
+          },
+          "required": [
+            "min",
+            "max"
+          ]
+        },
+        "confidentiality_starts": {
+          "type": "object",
+          "description": "A preferred option plus every option the company accepts.",
+          "properties": {
+            "prefer": {
+              "enum": [
+                "effective-date",
+                "last-disclosure"
+              ]
+            },
+            "accept": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "effective-date",
+                  "last-disclosure"
+                ]
+              },
+              "uniqueItems": true
+            }
+          },
+          "anyOf": [
+            {
+              "required": [
+                "prefer"
+              ]
+            },
+            {
+              "required": [
+                "accept"
+              ]
+            }
+          ]
+        },
+        "governing_law": {
+          "type": "object",
+          "description": "A preferred option plus every option the company accepts.",
+          "properties": {
+            "prefer": {
+              "enum": [
+                "Alabama",
+                "Alaska",
+                "Arizona",
+                "Arkansas",
+                "California",
+                "Colorado",
+                "Connecticut",
+                "Delaware",
+                "District of Columbia",
+                "Florida",
+                "Georgia",
+                "Hawaii",
+                "Idaho",
+                "Illinois",
+                "Indiana",
+                "Iowa",
+                "Kansas",
+                "Kentucky",
+                "Louisiana",
+                "Maine",
+                "Maryland",
+                "Massachusetts",
+                "Michigan",
+                "Minnesota",
+                "Mississippi",
+                "Missouri",
+                "Montana",
+                "Nebraska",
+                "Nevada",
+                "New Hampshire",
+                "New Jersey",
+                "New Mexico",
+                "New York",
+                "North Carolina",
+                "North Dakota",
+                "Ohio",
+                "Oklahoma",
+                "Oregon",
+                "Pennsylvania",
+                "Rhode Island",
+                "South Carolina",
+                "South Dakota",
+                "Tennessee",
+                "Texas",
+                "Utah",
+                "Vermont",
+                "Virginia",
+                "Washington",
+                "West Virginia",
+                "Wisconsin",
+                "Wyoming"
+              ]
+            },
+            "accept": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "Alabama",
+                  "Alaska",
+                  "Arizona",
+                  "Arkansas",
+                  "California",
+                  "Colorado",
+                  "Connecticut",
+                  "Delaware",
+                  "District of Columbia",
+                  "Florida",
+                  "Georgia",
+                  "Hawaii",
+                  "Idaho",
+                  "Illinois",
+                  "Indiana",
+                  "Iowa",
+                  "Kansas",
+                  "Kentucky",
+                  "Louisiana",
+                  "Maine",
+                  "Maryland",
+                  "Massachusetts",
+                  "Michigan",
+                  "Minnesota",
+                  "Mississippi",
+                  "Missouri",
+                  "Montana",
+                  "Nebraska",
+                  "Nevada",
+                  "New Hampshire",
+                  "New Jersey",
+                  "New Mexico",
+                  "New York",
+                  "North Carolina",
+                  "North Dakota",
+                  "Ohio",
+                  "Oklahoma",
+                  "Oregon",
+                  "Pennsylvania",
+                  "Rhode Island",
+                  "South Carolina",
+                  "South Dakota",
+                  "Tennessee",
+                  "Texas",
+                  "Utah",
+                  "Vermont",
+                  "Virginia",
+                  "Washington",
+                  "West Virginia",
+                  "Wisconsin",
+                  "Wyoming"
+                ]
+              },
+              "uniqueItems": true
+            }
+          },
+          "anyOf": [
+            {
+              "required": [
+                "prefer"
+              ]
+            },
+            {
+              "required": [
+                "accept"
+              ]
+            }
+          ]
+        },
+        "venue": {
+          "type": "object",
+          "description": "A preferred option plus every option the company accepts.",
+          "properties": {
+            "prefer": {
+              "enum": [
+                "Alabama",
+                "Alaska",
+                "Arizona",
+                "Arkansas",
+                "California",
+                "Colorado",
+                "Connecticut",
+                "Delaware",
+                "District of Columbia",
+                "Florida",
+                "Georgia",
+                "Hawaii",
+                "Idaho",
+                "Illinois",
+                "Indiana",
+                "Iowa",
+                "Kansas",
+                "Kentucky",
+                "Louisiana",
+                "Maine",
+                "Maryland",
+                "Massachusetts",
+                "Michigan",
+                "Minnesota",
+                "Mississippi",
+                "Missouri",
+                "Montana",
+                "Nebraska",
+                "Nevada",
+                "New Hampshire",
+                "New Jersey",
+                "New Mexico",
+                "New York",
+                "North Carolina",
+                "North Dakota",
+                "Ohio",
+                "Oklahoma",
+                "Oregon",
+                "Pennsylvania",
+                "Rhode Island",
+                "South Carolina",
+                "South Dakota",
+                "Tennessee",
+                "Texas",
+                "Utah",
+                "Vermont",
+                "Virginia",
+                "Washington",
+                "West Virginia",
+                "Wisconsin",
+                "Wyoming"
+              ]
+            },
+            "accept": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "Alabama",
+                  "Alaska",
+                  "Arizona",
+                  "Arkansas",
+                  "California",
+                  "Colorado",
+                  "Connecticut",
+                  "Delaware",
+                  "District of Columbia",
+                  "Florida",
+                  "Georgia",
+                  "Hawaii",
+                  "Idaho",
+                  "Illinois",
+                  "Indiana",
+                  "Iowa",
+                  "Kansas",
+                  "Kentucky",
+                  "Louisiana",
+                  "Maine",
+                  "Maryland",
+                  "Massachusetts",
+                  "Michigan",
+                  "Minnesota",
+                  "Mississippi",
+                  "Missouri",
+                  "Montana",
+                  "Nebraska",
+                  "Nevada",
+                  "New Hampshire",
+                  "New Jersey",
+                  "New Mexico",
+                  "New York",
+                  "North Carolina",
+                  "North Dakota",
+                  "Ohio",
+                  "Oklahoma",
+                  "Oregon",
+                  "Pennsylvania",
+                  "Rhode Island",
+                  "South Carolina",
+                  "South Dakota",
+                  "Tennessee",
+                  "Texas",
+                  "Utah",
+                  "Vermont",
+                  "Virginia",
+                  "Washington",
+                  "West Virginia",
+                  "Wisconsin",
+                  "Wyoming"
+                ]
+              },
+              "uniqueItems": true
+            }
+          },
+          "anyOf": [
+            {
+              "required": [
+                "prefer"
+              ]
+            },
+            {
+              "required": [
+                "accept"
+              ]
+            }
+          ]
+        },
+        "marking_requirement": {
+          "type": "object",
+          "description": "A preferred option plus every option the company accepts.",
+          "properties": {
+            "prefer": {
+              "enum": [
+                "none",
+                "written-marked",
+                "written-marked-oral-confirmed"
+              ]
+            },
+            "accept": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "none",
+                  "written-marked",
+                  "written-marked-oral-confirmed"
+                ]
+              },
+              "uniqueItems": true
+            }
+          },
+          "anyOf": [
+            {
+              "required": [
+                "prefer"
+              ]
+            },
+            {
+              "required": [
+                "accept"
+              ]
+            }
+          ]
+        },
+        "residuals": {
+          "enum": [
+            "accept",
+            "reject",
+            "require"
+          ]
+        },
+        "affiliate_sharing": {
+          "enum": [
+            "accept",
+            "reject",
+            "require"
+          ]
+        }
+      }
+    }
+  }
+}

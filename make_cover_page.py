@@ -256,6 +256,15 @@ def build(result):
         sys.exit(f"No cover page layout for form '{terms['form']}'")
 
     doc = Document()
+    # Document properties tie this file to its data, so software that receives only
+    # the document can find and verify the matching result.json.
+    props = doc.core_properties
+    props.title = "Mutual Non-Disclosure Agreement"
+    props.subject = f"NDA Handshake protocol {terms['protocol_version']}; form {terms['form']}"
+    props.keywords = f"nda-handshake; terms-hash:{result['terms_hash']}"
+    props.comments = ("Unsigned draft produced by the NDA Handshake matcher. "
+                      f"Terms hash (SHA-256): {result['terms_hash']}")
+    props.author = "NDA Handshake"
     normal = doc.styles["Normal"]
     normal.font.name = SERIF
     normal._element.rPr.rFonts.set(qn("w:eastAsia"), SERIF)
