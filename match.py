@@ -138,19 +138,54 @@ EXIT = {"AGREED": 0, "AGREED_PENDING_INFO": 0, "CONFLICTS": 1,
         "OUT_OF_PROTOCOL": 2, "VERSION_MISMATCH": 3}
 
 
-def fingerprint(path):
-    with open(path, "rb") as f:
-        return hashlib.sha256(f.read()).hexdigest()
+class FileText(str):
+    """The text of an nda-handshake.md given directly, instead of a path to it.
+
+    Anywhere this module takes a file, it takes either a path or a FileText.
+    This lets an assistant work from an email attachment it has already read,
+    without saving anything to disk.
+    """
 
 
-def load(path):
-    text = open(path, encoding="utf-8").read()
+MAX_FILE_BYTES = 200_000
+
+
+def _read(source):
+    """Return (bytes, label) for a path or a FileText, with line endings normalized.
+
+    Line endings are normalized to LF before anything else, so a file keeps the
+    same fingerprint whether it was read from disk or passed through email.
+    """
+    if isinstance(source, FileText):
+        data, label = source.encode("utf-8"), "file contents"
+    else:
+        with open(source, "rb") as f:
+            data = f.read(MAX_FILE_BYTES + 1)
+        label = str(source)
+    if len(data) > MAX_FILE_BYTES:
+        raise MatcherError(f"{label}: larger than {MAX_FILE_BYTES} bytes; not an nda-handshake.md")
+    return data.replace(b"\r\n", b"\n").replace(b"\r", b"\n"), label
+
+
+def fingerprint(source):
+    return hashlib.sha256(_read(source)[0]).hexdigest()
+
+
+def load(source):
+    data, label = _read(source)
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        raise MatcherError(f"{label}: not valid UTF-8 text")
     m = re.match(r"^---\s*\n(.*?)\n---\s*(\n|$)", text, re.S)
     if not m:
-        raise MatcherError(f"{path}: no YAML block found at the top of the file")
-    data = yaml.safe_load(m.group(1))
+        raise MatcherError(f"{label}: no YAML block found at the top of the file")
+    try:
+        data = yaml.safe_load(m.group(1))
+    except yaml.YAMLError:
+        raise MatcherError(f"{label}: the YAML block could not be read")
     if not isinstance(data, dict):
-        raise MatcherError(f"{path}: YAML block is not a set of fields")
+        raise MatcherError(f"{label}: YAML block is not a set of fields")
     return data
 
 

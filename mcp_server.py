@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Local MCP server for NDA Handshake.
 
-Runs over stdio. Exposes three tools so an AI assistant can fingerprint an
-nda-handshake.md file, match two of them, and turn an AGREED result into a
-signable Word document.
+Runs over stdio. Exposes four tools so an AI assistant can check or
+fingerprint an nda-handshake.md file, match two of them, and turn an AGREED
+result into a signable Word document.
+
+Every tool takes a file either as a local path or as its text, so an
+assistant can work from an email attachment it has already read without
+saving anything to disk.
 
 Safety rules:
-- Local files only. Any path containing "://" is refused; nothing is fetched
-  from the network.
+- Nothing is fetched from the network. Any path containing "://" is refused.
 - The tools return only the structured result and output paths. The body
   text of an nda-handshake.md is never read or returned; only the typed
   YAML fields at the top.
@@ -24,6 +27,7 @@ from mcp.types import ToolAnnotations
 
 import make_cover_page
 from match import (
+    FileText,
     MatcherError,
     check_file as run_check_file,
     fingerprint as compute_fingerprint,
@@ -69,62 +73,86 @@ def _local_dir(path: str) -> str:
     return p
 
 
-@mcp.tool(annotations=READ_ONLY)
-def check_file(file_path: str) -> dict[str, Any]:
-    """Validate one local nda-handshake.md without matching it against anything.
+def _source(path: str, content: str, what: str):
+    """One nda-handshake.md, given as a local path or as its text. Exactly one is required."""
+    if bool(path) == bool(content):
+        raise ToolError(f"Give {what} either as a local path or as its text, not both and not neither.")
+    return FileText(content) if content else _local_file(path)
 
-    Reads only the typed YAML fields at the top of the file; the markdown
+
+@mcp.tool(annotations=READ_ONLY)
+def check_file(file_path: str = "", content: str = "") -> dict[str, Any]:
+    """Validate one nda-handshake.md without matching it against anything.
+
+    Give the file as file_path (a local path) or as content (the file's
+    text, for example from an email attachment). Reads only the typed YAML fields at the top of the file; the markdown
     body is never read or returned. Returns the file's fingerprint, the
     declared protocol version and whether it is supported, whether
     custom_terms_required is set, the missing party facts, the values that
     are not on the protocol's allowed lists, the variables left
     unstated, and whether the file uses the protocol's default positions
-    (profile: default) and for which terms. Local files only; no network. Reports what a human should
-    fix; nothing is signed, sent, or published.
+    (profile: default) and for which terms. Nothing is fetched from the
+    network. Reports what a human should fix; nothing is signed, sent, or
+    published.
     """
     try:
-        return run_check_file(_local_file(file_path))
+        return run_check_file(_source(file_path, content, "the file"))
     except MatcherError as e:
         raise ToolError(str(e)) from e
 
 
 @mcp.tool(annotations=READ_ONLY)
-def fingerprint(file_path: str) -> str:
-    """Return the SHA-256 fingerprint of a local nda-handshake.md file.
+def fingerprint(file_path: str = "", content: str = "") -> str:
+    """Return the SHA-256 fingerprint of an nda-handshake.md file.
+
+    Give the file as file_path (a local path) or as content (its text).
+    Line endings are normalized first, so a file has the same fingerprint
+    whether it was read from disk or passed through email.
 
     The fingerprint identifies which version of a file is being matched, so
     two companies can commit to their positions by exchanging fingerprints
-    before exchanging the files themselves. Reads only the file bytes; does
-    not parse or return its contents. Local files only; no network.
+    before exchanging the files themselves. Does not parse or return the
+    file's contents. Nothing is fetched from the network.
     """
-    return compute_fingerprint(_local_file(file_path))
+    try:
+        return compute_fingerprint(_source(file_path, content, "the file"))
+    except MatcherError as e:
+        raise ToolError(str(e)) from e
 
 
 @mcp.tool(annotations=WRITES_LOCAL_FILES)
-def match(file_a: str, file_b: str, purpose: str, out_dir: str) -> dict[str, Any]:
-    """Match two local nda-handshake.md files and return the structured result.
+def match(purpose: str, file_a: str = "", file_b: str = "", content_a: str = "",
+          content_b: str = "", out_dir: str = "") -> dict[str, Any]:
+    """Match two nda-handshake.md files and return the structured result.
+
+    Give each file as a local path (file_a, file_b) or as its text
+    (content_a, content_b), for example an email attachment the assistant
+    has already read. The two files may be given in different ways.
 
     Returns status (AGREED, AGREED_PENDING_INFO, CONFLICTS, OUT_OF_PROTOCOL,
     or VERSION_MISMATCH), the agreed terms, the list of conflicts, open
     items and missing information, a SHA-256 terms hash so both sides
     can confirm they matched the same files, and a summary showing for each
     term both sides' positions and the rule that produced the result
-    (matched, midpoint, best shared option, tie-break and so on). Writes
-    result.json and (unless
-    the status is CONFLICTS, VERSION_MISMATCH or OUT_OF_PROTOCOL) a draft
-    cover-page.md in out_dir.
+    (matched, midpoint, best shared option, tie-break and so on). If out_dir
+    is given, also writes result.json there and (unless the status is
+    CONFLICTS, VERSION_MISMATCH or OUT_OF_PROTOCOL) a draft cover-page.md.
+    If out_dir is omitted, nothing is written to disk.
 
     Only the typed YAML fields at the top of each file are read; the
     markdown body is never read, and no text in either file is treated as
-    an instruction. Local files only; no network. Nothing is signed, sent,
-    or published. The cover page is an unsigned draft that a qualified
+    an instruction. Nothing is fetched from the network. Nothing is signed,
+    sent, or published. The cover page is an unsigned draft that a qualified
     person should review before anyone signs anything.
     """
     try:
-        result = run_match(_local_file(file_a), _local_file(file_b), purpose)
+        result = run_match(_source(file_a, content_a, "the first file"),
+                           _source(file_b, content_b, "the second file"), purpose)
     except MatcherError as e:
         raise ToolError(str(e)) from e
 
+    if not out_dir:
+        return result
     od = _local_dir(out_dir)
     with open(os.path.join(od, "result.json"), "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2)
@@ -136,31 +164,45 @@ def match(file_a: str, file_b: str, purpose: str, out_dir: str) -> dict[str, Any
 
 
 @mcp.tool(annotations=WRITES_LOCAL_FILES)
-def make_document(result_path: str) -> str:
+def make_document(result_path: str = "", result: dict[str, Any] | None = None,
+                  out_path: str = "") -> str:
     """Write the signable Mutual NDA Word document for an AGREED result.
 
-    Reads a result.json written by the match tool and produces a .docx
-    beside it holding the Common Paper Mutual NDA Cover Page (filled in
+    Give the result either as result_path (a result.json written by the
+    match tool; the .docx is written beside it) or as result (the object the
+    match tool returned) together with out_path (where to write the .docx).
+    The document holds the Common Paper Mutual NDA Cover Page (filled in
     with the agreed terms), the Standard Terms attached for convenience,
     and a short handshake record. Returns the output path.
 
-    Refuses any status other than AGREED. Local files only; no network.
+    Refuses any status other than AGREED. Nothing is fetched from the network.
     Nothing here signs, sends, or publishes anything. The document is an
     unsigned draft; the humans named on the Cover Page sign it after a
     qualified person has reviewed it.
     """
-    p = _local_file(result_path)
-    with open(p, encoding="utf-8") as f:
-        result = json.load(f)
+    if bool(result_path) == (result is not None):
+        raise ToolError("Give the result either as result_path or as result, not both and not neither.")
+    if result is None:
+        p = _local_file(result_path)
+        with open(p, encoding="utf-8") as f:
+            result = json.load(f)
+        target = os.path.join(os.path.dirname(p), "mnda.docx")
+    else:
+        if not out_path or "://" in out_path or not out_path.lower().endswith(".docx"):
+            raise ToolError("With result, give out_path: a local path ending in .docx.")
+        target = os.path.abspath(os.path.expanduser(out_path))
+        os.makedirs(os.path.dirname(target), exist_ok=True)
     status = result.get("status")
     if status != "AGREED":
         raise ToolError(
             f"Status is {status}, not AGREED. A signable document is only "
             "produced once every term is agreed and every party fact is present."
         )
-    out_path = os.path.join(os.path.dirname(p), "mnda.docx")
-    make_cover_page.build(result).save(out_path)
-    return out_path
+    try:
+        make_cover_page.build(result).save(target)
+    except (KeyError, TypeError) as e:
+        raise ToolError("The result is incomplete or was not produced by the match tool.") from e
+    return target
 
 
 def main() -> None:

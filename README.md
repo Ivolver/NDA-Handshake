@@ -98,21 +98,27 @@ against the schemas in `schema/`.
 
 `mcp_server.py` is a local Model Context Protocol server. An AI assistant
 that speaks MCP (for example Claude Desktop) can use it to run a handshake.
-Four tools, local files only, no network:
+Four tools. Nothing is fetched from the network. Each tool takes a file
+either as a local path or as its text, so an assistant can work straight
+from an email attachment without saving anything to disk:
 
-- `check_file(file_path)`: validates one `nda-handshake.md` on its own and
-  reports the declared protocol version, missing party facts, values not
-  on the protocol's allowed lists, unstated variables, and whether
-  `custom_terms_required` is set.
-- `fingerprint(file_path)`: the SHA-256 of one `nda-handshake.md`.
-- `match(file_a, file_b, purpose, out_dir)`: the structured result, with
-  status, agreed terms, conflicts, open items, missing info and terms hash.
-  Also writes `result.json` and, when terms are agreed, `cover-page.md` in
-  `out_dir`.
-- `make_document(result_path)`: writes the signable Word document next to
-  the result. Refuses any status other than `AGREED`.
+- `check_file(file_path or content)`: validates one `nda-handshake.md` on
+  its own and reports the declared protocol version, missing party facts,
+  values not on the protocol's allowed lists, unstated variables, and
+  whether `custom_terms_required` is set.
+- `fingerprint(file_path or content)`: the SHA-256 of one
+  `nda-handshake.md`, with line endings normalized.
+- `match(purpose, file_a or content_a, file_b or content_b, out_dir)`: the
+  structured result, with status, agreed terms, conflicts, open items,
+  missing info and terms hash. `out_dir` is optional. If given, the tool
+  also writes `result.json` and, when terms are agreed, `cover-page.md`
+  there. If not, nothing is written to disk.
+- `make_document(result_path)` or `make_document(result, out_path)`: writes
+  the signable Word document, either next to a saved result or at
+  `out_path` from the result the `match` tool returned. Refuses any status
+  other than `AGREED`.
 
-All three return structured output only; neither the body text of an
+All four return structured output only; neither the body text of an
 `nda-handshake.md` nor the contents of any other file is returned. Every
 output is an unsigned draft that a qualified person should review before
 anyone signs anything.

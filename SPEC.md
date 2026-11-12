@@ -226,7 +226,9 @@ words. If none applies, the field reads "None."
   other's. Either publish the file in advance at a stable address
   (recommended), or exchange file fingerprints first and the files second.
   The matcher prints a file's SHA-256 fingerprint and records both
-  fingerprints in its result.
+  fingerprints in its result. The fingerprint is taken after line endings
+  are normalized to LF, so a file keeps the same fingerprint whether it is
+  read from disk or passed through email.
 - **Neutral matching.** The rules do not favor either side. Leverage is
   expressed only through how narrow a range a company publishes.
 - **Record of agreement.** The agreed terms are serialized in a fixed order
