@@ -1,19 +1,119 @@
-# NDA Handshake (protocol v0.6)
+<img src="icon.png" alt="" width="96" align="right">
 
-Status: experimental. Protocol v0.6.
+# NDA Handshake
 
-Two companies exchange `nda-handshake.md` files. A matcher works out the NDA terms
-both can accept and drafts the cover page. Humans sign.
+Two companies' AI assistants put a standard mutual NDA in place over three
+emails, with no redlines.
 
-The files are exchanged under seal. The inviting company first sends only a
-commitment to its file, the other company replies with its own file, and
-the inviting company then reveals its file and the result. Neither side
-sees the other's positions before its own are fixed.
+Status: experimental. Protocol v0.6. This is not legal advice.
 
-See `SPEC.md` for the protocol: the file format, the closed list of
-negotiable terms, what is excluded, and the matching rules. When writing
-your own file, start with `GUIDE.md`, which walks through each of the nine
-choices in plain English.
+## The idea
+
+Most NDAs between companies say nearly the same thing, yet each one still
+costs days of back and forth. NDA Handshake removes that step for the
+routine case.
+
+Each company writes down, once, the NDA terms it is willing to sign. When
+two companies need an NDA, their assistants exchange three short emails
+and both arrive at the same agreement, built on the
+[Common Paper Mutual NDA](https://commonpaper.com/standards/mutual-nda/1.0).
+People still decide to start, and people still sign.
+
+## What it looks like
+
+You tell your assistant:
+
+> Start an NDA handshake with jane@acme.example about a possible partnership.
+
+| Who | What the person does | What the assistant does |
+|---|---|---|
+| You | Say that one sentence | Seals your positions and sends the invitation |
+| Acme | Answers one question: reply to this invitation? | Sends Acme's positions |
+| You | Nothing | Works out the NDA, sends the result, tells you the terms |
+| Acme | Nothing | Checks the result independently, tells Acme the terms |
+| Both | Sign your own copy | |
+
+The emails are written for the people who receive them, with a short block
+at the end for the assistants:
+
+    Hello,
+
+    Before we get into the details, Harbor Example LLC would like to put a
+    mutual NDA in place. We use NDA Handshake, an open protocol that lets our
+    assistants settle a standard NDA so nobody has to trade redlines.
+
+    What we would like to discuss: Evaluating a possible partnership
+
+    Neither side sees the other's positions first, so there is no peeking and
+    no haggling. If your assistant knows NDA Handshake, just ask it to handle
+    this email. If not, reply and we will send a draft the old-fashioned way.
+
+    --- for the assistants (please leave this part as it is) ---
+    nda-handshake: invitation
+    ...
+
+## Why you can rely on the result
+
+- **Sealed.** The inviting company first sends only a locked commitment to
+  its positions. It opens them after the other side has sent its own.
+  Neither side can shape its positions around the other's.
+- **Fixed rules, not judgment.** The NDA is worked out by a small set of
+  published rules. No AI decides any term. The same two sets of positions
+  always produce the same NDA.
+- **Checked by both sides.** Each side runs the rules itself and compares
+  a fingerprint of the result. A changed file or a different answer is
+  caught, and nothing is treated as agreed.
+- **Bounded.** Only nine terms can vary, and you are never taken outside
+  the positions you wrote down. Everything else is the standard form,
+  unchanged.
+- **Yours.** It runs on your own computer. Nothing is fetched from the
+  network, nothing is sent without you, and nothing is signed for you.
+- **Open.** The protocol, the rules and this implementation are public.
+  Anyone can build a compatible one and check it against the same examples.
+
+It has been run end to end between two different AI assistants on separate
+machines, each verifying the other's result.
+
+## The nine terms
+
+The length of the NDA, the confidentiality period and when it starts,
+governing law, venue, whether confidential material must be marked, a
+residuals clause, sharing with affiliates, and the standard form itself.
+A company can take the protocol's balanced default positions with one
+line, or set its own. `GUIDE.md` walks through each choice in plain
+English.
+
+If two companies' positions do not meet, there is no NDA from the
+handshake. Each assistant tells its own person which terms failed, with a
+suggestion, and the people take it from there. Assistants do not bargain
+with each other. If a company needs something the protocol leaves out,
+such as a non-solicit or a one-way NDA, the handshake says so and steps
+aside.
+
+## Get started
+
+1. **Install it.** Download `nda-handshake-<version>.mcpb` from the
+   [Releases page](https://github.com/Ivolver/NDA-Handshake/releases) and
+   open it in Claude Desktop. It asks where to keep your files and installs
+   itself. Other assistants can run it from the source; see
+   "Install by hand" below.
+2. **Set up your company.** Say "Set up NDA Handshake for my company." Your
+   assistant asks for the company's details, shows you each NDA position,
+   and saves your file once you confirm.
+3. **Start a handshake**, or ask your assistant to handle an invitation
+   you received.
+
+Install it only from the Releases page or a connector directory you
+already trust, never from a link in an email.
+
+## Read more
+
+- `GUIDE.md`: writing your company's file, one choice at a time.
+- `SPEC.md`: the protocol. The file format, the nine terms, what is
+  excluded, the matching rules and the sealed exchange.
+
+The rest of this page is for people who want to run the pieces directly or
+build their own implementation.
 
 ## Run it
 
