@@ -184,12 +184,18 @@ async def run() -> int:
             check("match CONFLICTS pair did not write cover-page.md",
                   not os.path.exists(os.path.join(tmp, "harbor-northwind", "cover-page.md")))
 
-            # make_document on the AGREED result writes mnda.docx
+            # make_document on the AGREED result writes a .docx named for both companies
             agreed_result_json = os.path.join(tmp, "harbor-lakeside", "result.json")
             doc_path = _structured(await client.call_tool(
                 "make_document", {"result_path": agreed_result_json}))
-            check("make_document returned a path ending in mnda.docx",
-                  isinstance(doc_path, str) and doc_path.endswith("mnda.docx"))
+            with open(agreed_result_json, encoding="utf-8") as f:
+                agreed_names = [p["legal_name"] for p in json.load(f)["terms"]["parties"]]
+            check("make_document named the file for both companies",
+                  isinstance(doc_path, str)
+                  and os.path.basename(doc_path)
+                  == "MNDA_" + "_and_".join(n.replace(" ", "-") for n in agreed_names)
+                  + ".docx",
+                  f"got {doc_path}")
             check("make_document wrote the file",
                   os.path.isfile(doc_path) and os.path.getsize(doc_path) > 1000)
             import docx as _docx
@@ -247,7 +253,7 @@ async def run() -> int:
                   and by_text.get("file_fingerprints") == by_path.get("file_fingerprints"))
             check("match without out_dir writes nothing", set(os.listdir(HERE)) == before)
 
-            target = os.path.join(tmp2, "from-text", "mnda.docx")
+            target = os.path.join(tmp2, "from-text", "out.docx")
             made = _structured(await client.call_tool(
                 "make_document", {"result": by_text, "out_path": target}))
             check("make_document accepts the result directly",

@@ -232,7 +232,9 @@ turn a bare `AGREED` match result into a Word document by hand (requires
 
     python3 make_cover_page.py out/harbor-lakeside/result.json
 
-This writes `mnda.docx` next to the result. It holds the Common Paper Cover
+This writes the document next to the result, named for both companies (for
+example `MNDA_Harbor-Example-LLC_and_Lakeside-Example-LLC.docx`; an executed
+NDA starts with its date, as in `2026-11-14_MNDA_...`). It holds the Common Paper Cover
 Page filled in with the agreed terms, the Standard Terms attached for
 convenience, and a one-page handshake record that is not part of the
 agreement. The record shows how each term was reached. A copy made this

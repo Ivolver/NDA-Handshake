@@ -487,6 +487,31 @@ def build(result, draft_by=None, signing=None):
     return doc
 
 
+def _file_safe(name):
+    """A company name as one part of a file name: letters, digits and hyphens."""
+    name = re.sub(r"[^\w\s&+-]", "", str(name or ""), flags=re.UNICODE).replace("_", " ")
+    return re.sub(r"[\s-]+", "-", name).strip("-")[:60].strip("-")
+
+
+def document_name(result, executed=None, draft=False, date=None):
+    """The file name for the NDA document: date, kind, then both companies.
+
+    "2026-11-14_MNDA_Harbor-Example-LLC_and_Lakeside-Example-LLC.docx" for an
+    executed NDA, so a folder of them sorts by date. Underscores separate the
+    parts and hyphens join the words inside a part. A copy that is not
+    executed has no date. An ordinary draft is "MNDA-draft" and carries the
+    date it was made, if one is given. The companies appear in the order of
+    the result, so both sides give their copy the same name.
+    """
+    parties = ((result or {}).get("terms") or {}).get("parties") or []
+    names = [n for n in (_file_safe(p.get("legal_name")) for p in parties) if n]
+    parts = [date] if draft and date else [executed] if executed and not draft else []
+    parts.append("MNDA-draft" if draft else "MNDA")
+    if names:
+        parts.append("_and_".join(names))
+    return "_".join(parts) + ".docx"
+
+
 def main():
     ap = argparse.ArgumentParser(description="Make the NDA as a Word document from result.json")
     ap.add_argument("result", help="Path to a result.json written by match.py")
@@ -499,7 +524,8 @@ def main():
         sys.exit(f"Status is {result.get('status')}, not AGREED. A document is only "
                  "produced once every term is agreed, every party fact is present and "
                  "both companies have given their confirmation.")
-    out = args.out or os.path.join(os.path.dirname(os.path.abspath(args.result)), "mnda.docx")
+    out = args.out or os.path.join(os.path.dirname(os.path.abspath(args.result)),
+                                   document_name(result))
     build(result).save(out)
     print(f"Wrote {out}")
 

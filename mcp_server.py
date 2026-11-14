@@ -204,7 +204,8 @@ def _document(result: dict, folder: str, signing: dict | None = None):
 
     signing carries each company's electronic execution details.
     """
-    path = os.path.join(folder, "mnda.docx")
+    executed = next((s.get("date") for s in (signing or {}).values() if s.get("date")), None)
+    path = os.path.join(folder, make_cover_page.document_name(result, executed=executed))
     make_cover_page.build(result, signing=signing or {}).save(path)
     return path
 
@@ -431,7 +432,8 @@ def draft_nda(purpose: str, counterparty_name: str = "", out_dir: str = "") -> d
             os.path.dirname(sealed.own_file_path() or "") or None)
     except MatcherError as e:
         raise ToolError(str(e)) from e
-    path = os.path.join(folder, "mnda-draft.docx")
+    path = os.path.join(folder, make_cover_page.document_name(
+        {"terms": made["terms"]}, draft=True, date=datetime.date.today().isoformat()))
     make_cover_page.build({"terms": made["terms"]}, draft_by=made["own_name"]).save(path)
     return {"step": "draft_ready",
             "tell_person": (f"An ordinary draft NDA from {made['own_name']} is ready at {path}. "
@@ -550,9 +552,9 @@ def make_reveal(reply_text: str, their_file_path: str = "", their_content: str =
     result:
     - AGREED: the reveal is this company's acceptance, and the NDA is
       executed by both companies when it is sent. "document" is this
-      company's copy of the NDA (mnda.docx). Attach it to the reveal if
-      possible, as a courtesy copy; the other side produces an identical
-      copy from its own run.
+      company's copy of the NDA, a Word file named for both companies.
+      Attach it to the reveal if possible, as a courtesy copy; the other
+      side produces an identical copy from its own run.
     - Anything else: show the person "report". Do not bargain with the
       other side's assistant.
 
@@ -582,7 +584,8 @@ def check_reveal(reveal_text: str, their_file_path: str = "", their_content: str
     business day of receiving the reveal.
 
     - verified with status AGREED: the NDA was executed when the reveal
-      was sent. This company's own copy is saved as mnda.docx.
+      was sent. This company's own copy is saved in the deal folder,
+      named for both companies.
     - verified with another status: show the person "report".
     - not verified: show the person "ground" and, with their go-ahead,
       send contest_block in the same thread within one business day.
@@ -1052,9 +1055,9 @@ def make_document(result_path: str = "", result: dict[str, Any] | None = None,
     """Write a copy of the Mutual NDA as a Word document for an AGREED result.
 
     Give the result either as result_path (a result.json written by the
-    match tool or saved in a deal folder; the .docx is written beside it)
-    or as result (the object the match tool returned) together with
-    out_path (where to write the .docx). The document holds the Common
+    match tool or saved in a deal folder; the .docx is written beside it,
+    named for both companies) or as result (the object the match tool
+    returned) together with out_path (where to write the .docx). The document holds the Common
     Paper Mutual NDA Cover Page (filled in with the agreed terms), the
     Standard Terms attached for convenience, and a short handshake record.
     Returns the output path.
@@ -1073,7 +1076,7 @@ def make_document(result_path: str = "", result: dict[str, Any] | None = None,
         p = _local_file(result_path)
         with open(p, encoding="utf-8") as f:
             result = json.load(f)
-        target = os.path.join(os.path.dirname(p), "mnda.docx")
+        executed = None
         try:
             with open(os.path.join(os.path.dirname(p), "handshake-record.json"),
                       encoding="utf-8") as f:
@@ -1082,8 +1085,11 @@ def make_document(result_path: str = "", result: dict[str, Any] | None = None,
                     and record.get("terms_hash") == result.get("terms_hash")):
                 datetime.date.fromisoformat(record["executed"])
                 signing = sealed.signing(result, record["executed"])
+                executed = record["executed"]
         except (OSError, ValueError, TypeError):
-            signing = {}
+            signing, executed = {}, None
+        target = os.path.join(os.path.dirname(p),
+                              make_cover_page.document_name(result, executed=executed))
     else:
         if not out_path or "://" in out_path or not out_path.lower().endswith(".docx"):
             raise ToolError("With result, give out_path: a local path ending in .docx.")
