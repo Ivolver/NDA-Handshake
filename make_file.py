@@ -4,16 +4,20 @@
 This is the onboarding step. An assistant gathers the company's facts and
 positions (for example from the company's own past NDAs), passes them here
 as plain structured values, and gets back the text of a file plus a check
-report. A human must confirm the positions before the file is sent to
-anyone.
+report. The file cannot complete a handshake until a person with authority
+to bind the company gives the standing confirmation for its positions
+(with_confirmation). Nothing here gives that confirmation for anyone.
 
 Only the values passed in are used. Each one is written as a quoted string
 or a number, so nothing in a value can change the structure of the file.
 """
+import datetime
 import json
+import re
 
 from match import (FileText, MatcherError, PROTOCOL_VERSIONS, RANGES, TOGGLES,
-                   check_file)
+                   check_file, confirmation_text_fingerprint, load,
+                   positions_fingerprint, usable_sent_from)
 
 CHOICES = ["form", "confidentiality_starts", "governing_law", "venue",
            "marking_requirement"]
@@ -180,7 +184,7 @@ def build_file(facts, positions=None, use_default_positions=True,
     if check["unstated_variables"]:
         warnings.append("No position stated for: "
                         + ", ".join(check["unstated_variables"])
-                        + ". The company will accept any allowed value for these.")
+                        + ". A handshake needs a position on every term.")
     if check["custom_terms_required"]:
         warnings.append("custom_terms_required is set, so every handshake "
                         "with this file ends as OUT_OF_PROTOCOL.")
@@ -188,3 +192,71 @@ def build_file(facts, positions=None, use_default_positions=True,
         content = None
     return {"content": content, "ready": not problems, "problems": problems,
             "warnings": warnings, "check": check if content else None}
+
+
+def without_confirmation(text):
+    """A file's text with its confirmation block removed. Nothing else changes."""
+    m = re.match(r"^(---\s*\n)(.*?)(\n---\s*(?:\n|$))", text, re.S)
+    if not m:
+        raise MatcherError("The file has no YAML block at the top")
+    kept, skipping = [], False
+    for line in m.group(2).split("\n"):
+        if re.match(r"^confirmation\s*:", line):
+            skipping = True
+            continue
+        if skipping and (line[:1] in (" ", "\t") or not line.strip()):
+            continue                      # a line belonging to the block just removed
+        skipping = False
+        kept.append(line)
+    while kept and not kept[-1].strip():
+        kept.pop()
+    return m.group(1) + "\n".join(kept) + m.group(3) + text[m.end():]
+
+
+def with_confirmation(text, confirmed_by, sent_from, date=None):
+    """A file's text with the standing confirmation recorded in it.
+
+    confirmed_by is the name and title of the person who gave the
+    confirmation, as they typed it. sent_from is the email domain the
+    company sends its file from, or one full email address if the company
+    uses a public email service. The block also records the fingerprint of the
+    confirmation text and of the positions it was given for. Only the
+    confirmation block changes; every other line is kept as it is.
+
+    This records a confirmation a person has given. It must be called only
+    after that person has read the confirmation text and typed their name.
+    """
+    problems = []
+    confirmed_by = _text(confirmed_by, "confirmed_by", problems)
+    sent_from = (_text(sent_from, "sent_from", problems) or "").lower()
+    if problems or not confirmed_by:
+        raise MatcherError("The confirmation needs the name and title of the person "
+                           "giving it, as one line.")
+    if not usable_sent_from(sent_from):
+        raise MatcherError(
+            "sent_from must be a domain the company controls, for example "
+            "harbor.example, or one full email address. A public email service such "
+            "as gmail.com is accepted only as a full address.")
+    try:
+        day = (datetime.date.fromisoformat(date) if date else datetime.date.today()).isoformat()
+    except ValueError:
+        raise MatcherError("The date must be written as YYYY-MM-DD.")
+    base = without_confirmation(text)
+    data = load(FileText(base))
+    m = re.match(r"^(---\s*\n)(.*?)(\n---\s*(?:\n|$))", base, re.S)
+    block = ["", "", "confirmation:",
+             f"  confirmed_by: {_q(confirmed_by)}",
+             f"  date: {_q(day)}",
+             f"  sent_from: {_q(sent_from)}",
+             f"  text: {_q(confirmation_text_fingerprint())}",
+             f"  positions: {_q(positions_fingerprint(data))}"]
+    out = m.group(1) + m.group(2) + "\n".join(block) + m.group(3) + base[m.end():]
+
+    # Nothing but the confirmation may have changed, and it must read back as valid.
+    after = load(FileText(out))
+    rest = {key: value for key, value in after.items() if key != "confirmation"}
+    if rest != data or not check_file(FileText(out))["confirmation"]["confirmed"]:
+        raise MatcherError(
+            "The confirmation could not be written into this file safely. "
+            "Run check_file on the file and fix what it reports first.")
+    return out

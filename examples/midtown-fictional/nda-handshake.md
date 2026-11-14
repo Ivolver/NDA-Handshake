@@ -1,5 +1,5 @@
 ---
-nda_handshake: "0.6"
+nda_handshake: "0.7"
 
 company:
   name: Midtown Example (fictional)
@@ -37,6 +37,13 @@ nda:
     accept: [none]
   residuals: accept
   affiliate_sharing: accept
+
+confirmation:
+  confirmed_by: "Casey Sample, General Counsel"
+  date: "2026-11-02"
+  sent_from: "midtown.example"
+  text: "1ef05804d30038833d80240c40636c41f2e207cd87526e919a93ea4150e6e096"
+  positions: "f9a6886056cd2beacb1137acd34a47856a37c15f371fa8e7b3820e61565a558b"
 ---
 
 # Midtown Example Inc.

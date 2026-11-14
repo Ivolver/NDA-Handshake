@@ -1,5 +1,5 @@
 ---
-nda_handshake: "0.6"
+nda_handshake: "0.7"
 
 company:
   name: Quarry Example (fictional)
@@ -21,6 +21,13 @@ notices:
 
 nda:
   profile: default
+
+confirmation:
+  confirmed_by: "Morgan Sample, Managing Member"
+  date: "2026-11-02"
+  sent_from: "quarry.example"
+  text: "1ef05804d30038833d80240c40636c41f2e207cd87526e919a93ea4150e6e096"
+  positions: "087126874fb4f1851bd96b65dadee736e5f462179e931318e439bf6e741f91db"
 ---
 
 # Quarry Example LLC

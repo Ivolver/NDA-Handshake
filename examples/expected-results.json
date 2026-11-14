@@ -1,5 +1,5 @@
 {
-  "protocol_version": "0.6",
+  "protocol_version": "0.7",
   "purpose": "Evaluating a potential business relationship",
   "match_cases": [
     {
@@ -9,7 +9,7 @@
         "lakeside-fictional/nda-handshake.md"
       ],
       "status": "AGREED",
-      "terms_hash": "0d38a6b28361c9c2e1c8e0f978e5382c15a3bb920b9e2c7c6e5c1bb0095d5f4f",
+      "terms_hash": "2a43f4b88dbfd8f691e33c697e6de5113346badbaaf86ab22538ef77e34e9805",
       "governing_law": "Delaware",
       "venue": "Delaware",
       "how": {
@@ -25,7 +25,7 @@
         "harbor-fictional/nda-handshake.md"
       ],
       "status": "AGREED",
-      "terms_hash": "0d38a6b28361c9c2e1c8e0f978e5382c15a3bb920b9e2c7c6e5c1bb0095d5f4f",
+      "terms_hash": "2a43f4b88dbfd8f691e33c697e6de5113346badbaaf86ab22538ef77e34e9805",
       "governing_law": "Delaware",
       "venue": "Delaware",
       "how": {
@@ -68,7 +68,7 @@
         "midtown-fictional/nda-handshake.md"
       ],
       "status": "AGREED",
-      "terms_hash": "e6e1aa1d2c0e1d4dd9d2c66b04f3a93a15fad8d06f47de9186f294231364adcb",
+      "terms_hash": "f58e0c42ee01c2279a880f613a1c9b57145031c629d94d5e368279d8237dd725",
       "governing_law": "New York",
       "venue": "New York",
       "how": {
@@ -84,7 +84,7 @@
         "quarry-fictional/nda-handshake.md"
       ],
       "status": "AGREED",
-      "terms_hash": "dd327738a26bad7e7e40c5f4be82b3e0e65db2311d745868b8ad6b7650d5cff0",
+      "terms_hash": "c95bd8ed488f9c15e45884baf7a42acf9ab9cea5cfc577b4ae763127d9c2491f",
       "governing_law": "Texas",
       "venue": "Texas"
     },
@@ -95,7 +95,7 @@
         "harbor-fictional/nda-handshake.md"
       ],
       "status": "AGREED",
-      "terms_hash": "633f95fd6f7cda850e184e1586d7755933a696d0aba4be71f67a41af26728475",
+      "terms_hash": "6c1857cfdd9c50c9b4578a0c555c871336080c8f5e041054d4a05afad08c0737",
       "governing_law": "Delaware",
       "venue": "Delaware"
     },
@@ -114,6 +114,17 @@
       ]
     },
     {
+      "name": "Harbor and Tidewater: one company has not given its confirmation",
+      "files": [
+        "harbor-fictional/nda-handshake.md",
+        "tidewater-fictional/nda-handshake.md"
+      ],
+      "status": "AGREED_PENDING_INFO",
+      "missing": [
+        "confirmation"
+      ]
+    },
+    {
       "name": "Outlier is out of protocol",
       "files": [
         "harbor-fictional/nda-handshake.md",
@@ -123,12 +134,13 @@
     }
   ],
   "fingerprints": {
-    "harbor-fictional/nda-handshake.md": "2df2e56cdd89edd415cf42e5f2a9e63cf5b8cefaf0df6139a8c9d0ed00ddf1c1",
-    "lakeside-fictional/nda-handshake.md": "74db5db834d802ebd5f0b1dc7c5e144710949f56e1f8c9ff37e1d0c91df58baf",
-    "midtown-fictional/nda-handshake.md": "5b1b7f115ee3c17c9650e60ee02674b1a33ae53757d2a5b9fd527fc53ed72588",
-    "northwind-fictional/nda-handshake.md": "b1ffd2b63ae3f9f1c7537c585005d4aa5639658b2fdf45bbbabe4394e5472ed7",
-    "outlier-fictional/nda-handshake.md": "d5db62cb9ecb4881ad69dd775bf32a877315bbb0cf073548bde773c4829849fc",
-    "pioneer-fictional/nda-handshake.md": "3baa7c526c59027380a3670686f8f33e235161f47f4a79db9531906dc0262487",
-    "quarry-fictional/nda-handshake.md": "710f9b8e4d7efa01063d52c16e486de24444052a604e9f5a0fa67529cdc7eca5"
+    "harbor-fictional/nda-handshake.md": "a296695657622e97732d9ea3cb9fdbbd99b7fbdcb91216b79a8aa5d9c66e2f6b",
+    "lakeside-fictional/nda-handshake.md": "f8059cb164c7e5dea31e5f649643148b50e266ff30f754355f93ed59658decb8",
+    "midtown-fictional/nda-handshake.md": "e2f185a48f2d6a8d467c7b7743203ecceaf238f289dfbb8cb0fdee7ab8778fe7",
+    "northwind-fictional/nda-handshake.md": "47817bf35fc29ce7f330079058fdf33771ac4dd7df958c5d940698a684da6099",
+    "outlier-fictional/nda-handshake.md": "4fb7530599dbe4b807acde2c6f6c254674297410e506232919036cd8a25086fd",
+    "pioneer-fictional/nda-handshake.md": "2551643f81e80fef4966e6f76e1b62c4dce4774c8496fa943ba52473cdbabc01",
+    "quarry-fictional/nda-handshake.md": "2fc3e9ffee94e9b9dc3c5c4a5545b00d2604c19054a54e51b233b1bb8e0765f8",
+    "tidewater-fictional/nda-handshake.md": "854ce7de1564fa6d9b16e32d5a8c1b003b7e0f39a3b895c40f99b8878b732f62"
   }
 }

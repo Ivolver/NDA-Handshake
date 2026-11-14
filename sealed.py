@@ -12,6 +12,12 @@ Three messages:
    result. The replying company checks the file against the commitment and
    the result against its own run.
 
+Nobody signs. Each company has given a standing confirmation, recorded in
+its own file, that an NDA inside its positions is executed for it. The
+reply is the offer and an AGREED reveal is the acceptance, so the NDA is
+in place when the reveal is sent. The replying company has one business
+day to contest a mismatch.
+
 Each company produces the NDA document from its own run. The two copies
 carry the same terms and the same terms hash, so the exchange does not
 depend on a document travelling with the reveal. The inviting company
@@ -23,7 +29,8 @@ treated as an instruction.
 
 This module keeps a small record of each exchange on the local machine so
 the file a company committed to is the file it later uses. It sends
-nothing and signs nothing.
+nothing and decides nothing: the terms come from fixed rules applied to
+positions people set, and a person starts or approves each exchange.
 """
 import datetime
 import hashlib
@@ -32,14 +39,14 @@ import os
 import re
 import secrets
 
-from match import (FileText, MatcherError, PROTOCOL_VERSIONS, check_file,
+from match import (EMAIL, FileText, MatcherError, PROTOCOL_VERSIONS, check_file,
                    fingerprint, load, pick_entity, run_match)
 
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 STATUSES = ["AGREED", "AGREED_PENDING_INFO", "CONFLICTS", "OUT_OF_PROTOCOL",
             "VERSION_MISMATCH"]
 GROUNDS = ["commitment-mismatch", "file-altered", "status-mismatch",
-           "terms-hash-mismatch"]
+           "terms-hash-mismatch", "sender-mismatch", "date-mismatch"]
 MAX_TEXT = 200
 
 # kind -> (required lines, optional lines), in the order they are written.
@@ -47,11 +54,20 @@ BLOCKS = {
     "invitation": (["protocol", "from", "purpose", "commitment"], []),
     "reply": (["protocol", "from", "commitment"], []),
     "reveal": (["protocol", "commitment", "secret", "status"],
-               ["terms-hash", "inviter", "replier", "execution"]),
+               ["terms-hash", "inviter", "replier", "executed"]),
     "contest": (["protocol", "commitment", "ground"], ["my-hash"]),
 }
 HEX_LINES = {"commitment", "secret", "terms-hash", "inviter", "replier", "my-hash"}
-ENUM_LINES = {"status": STATUSES, "ground": GROUNDS, "execution": ["human"]}
+ENUM_LINES = {"status": STATUSES, "ground": GROUNDS}
+DATE_LINES = {"executed"}
+
+
+class NotConfirmed(MatcherError):
+    """This company's own file has no usable standing confirmation."""
+
+
+class IdentityStop(MatcherError):
+    """The other company's file could not be tied to its email domain."""
 
 TERM_LABELS = {
     "form": "Standard form",
@@ -209,6 +225,11 @@ def parse_block(text, kind):
         elif key in ENUM_LINES:
             if value not in ENUM_LINES[key]:
                 raise MatcherError(f"The {key} line has a value the protocol does not allow")
+        elif key in DATE_LINES:
+            try:
+                value = datetime.date.fromisoformat(value).isoformat()
+            except ValueError:
+                raise MatcherError(f"The {key} line is not a date written as YYYY-MM-DD")
         else:
             value = _one_line(value, key)
         out[key] = value
@@ -229,10 +250,12 @@ def _protocol():
     return sorted(PROTOCOL_VERSIONS)[-1]
 
 
-def _own_text(own_source):
+def _own_text(own_source, need_confirmation=True):
     """This company's own file, checked as ready to use.
 
     Returns (text, path). The path is None if the file was given as text.
+    A handshake needs the company's standing confirmation; reading the
+    company's positions for a summary or an ordinary draft does not.
     """
     path = None
     if own_source is None:
@@ -253,10 +276,15 @@ def _own_text(own_source):
     problems = [f"missing: {m}" for m in report["missing_party_facts"]] + report["bad_values"]
     if not report["protocol_version_supported"]:
         problems.append(
-            "the file's protocol version is not supported. If it says 0.5, change its "
-            f"nda_handshake line to \"{_protocol()}\"; the file format did not change")
+            "the file's protocol version is not supported. If it says 0.6 or earlier, "
+            f"change its nda_handshake line to \"{_protocol()}\" and then give the "
+            "confirmation this version needs")
     if problems:
         raise MatcherError("This company's own file is not ready: " + "; ".join(problems))
+    if need_confirmation and not report["confirmation"]["ready"]:
+        raise NotConfirmed(
+            "This company has not given the confirmation a handshake needs: "
+            + "; ".join(p.replace("Party: ", "") for p in report["confirmation"]["problems"]))
     return text, path
 
 
@@ -266,7 +294,7 @@ def _legal_name(text):
 
 def positions_summary(source):
     """This file's own position on each term, in plain English."""
-    result = run_match(source, source, "summary")
+    result = run_match(source, source, "summary", require_confirmation=False)
     if "summary" not in result:
         return []
     return [{"term": e["term"], "label": TERM_LABELS.get(e["term"], e["term"]),
@@ -317,8 +345,8 @@ def ordinary_draft(purpose, own_source=None, counterparty_name=None):
     the usual way. No handshake is involved, so there is no terms hash.
     """
     purpose = _one_line(purpose, "purpose")
-    text, _ = _own_text(own_source)
-    result = run_match(FileText(text), FileText(text), purpose)
+    text, _ = _own_text(own_source, need_confirmation=False)
+    result = run_match(FileText(text), FileText(text), purpose, require_confirmation=False)
     if result.get("status") != "AGREED":
         raise MatcherError(
             "An ordinary draft cannot be made from this company's file: " + (
@@ -393,7 +421,8 @@ def conflict_report(result, own_name):
                        "suggestion": suggestion})
     return {"status": status,
             "explanation": "The two files do not produce an agreement on every term."
-            if failed else "Agreement is waiting on missing information.",
+            if failed else "The positions line up, but something an NDA needs is missing. "
+            "Nothing is executed.",
             "failed_terms": failed,
             "missing_info": result.get("missing_info", []),
             "open_items": result.get("open_items", []),
@@ -461,7 +490,9 @@ def invitation_email(own_name, purpose, block):
         "  3. We open ours, and both assistants work out the same NDA.",
         "",
         "Neither side sees the other's positions first, so there is no peeking and",
-        "no haggling. If your assistant already knows NDA Handshake, just ask it to",
+        "no haggling. If the positions meet, the NDA is in place right then. Nobody",
+        "has to sign anything, because each company approves its positions in",
+        "advance. If your assistant already knows NDA Handshake, just ask it to",
         "handle this email.",
         "",
         "New to it? The page below shows how to add it. It takes a few minutes, and",
@@ -477,7 +508,8 @@ def reply_email(own_name, block):
         f"Happy to shake on it. {own_name}'s NDA positions are attached.",
         "",
         "Your move: once your assistant opens your sealed positions, both sides",
-        "will see the same result.",
+        "will see the same result. If our positions meet, the NDA is in place when",
+        "your assistant sends that result.",
     ], block)
 
 
@@ -490,8 +522,12 @@ def reveal_email(result, block):
                   "You do not have to take our word for it. Our positions are attached, and",
                   "your assistant will check them against the seal and run the numbers itself.",
                   "",
-                  "Each assistant produces the same NDA document, and each side signs its own",
-                  "copy. Ours is attached if our assistant was able to attach it."]
+                  "This NDA has been executed by both companies and is in place as of this",
+                  "email. Each company approved its positions in advance, so both signatures",
+                  "are already on it and nobody needs to sign by hand. If your assistant's",
+                  "check does not come out the same as ours, it should tell us within one",
+                  "business day. The executed NDA is attached if our assistant was able to",
+                  "attach it, and your assistant produces an identical copy."]
     elif status == "CONFLICTS":
         failed = [TERM_LABELS.get(e["term"], e["term"]).replace(" (years)", "")
                   for e in (result.get("summary") or {}).get("terms", [])
@@ -504,7 +540,8 @@ def reveal_email(result, block):
                   "Humans are still allowed to negotiate."]
     else:
         why = {"AGREED_PENDING_INFO":
-               "Our positions line up, but some details needed for the NDA are missing.",
+               "Our positions line up, but something needed for the NDA is missing: a\n"
+               "company detail, a position, or a company's confirmation.",
                "OUT_OF_PROTOCOL":
                "One of us needs terms that NDA Handshake does not cover.",
                "VERSION_MISMATCH":
@@ -517,10 +554,89 @@ def reveal_email(result, block):
 
 def contest_email(block):
     return _email([
-        "Our check of your reveal did not come out the same as yours, so we are not",
-        "treating this NDA as agreed yet. Could someone on your side take a look?",
-        "The details for your assistant are below.",
+        "Our check of your reveal did not come out the same as yours, so no NDA is",
+        "in place between us from this exchange. Could someone on your side take a",
+        "look? The details for your assistant are below.",
     ], block)
+
+
+# ------------------------------------------------- identity and execution
+
+def nice_date(iso):
+    d = datetime.date.fromisoformat(iso)
+    return f"{d:%B} {d.day}, {d.year}"
+
+
+def sender_address(sender):
+    """The bare address an email came from, in lower case, or None.
+
+    Accepts "name@host" or "Name <name@host>".
+    """
+    if not isinstance(sender, str):
+        return None
+    m = re.search(r"([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+)\s*>?\s*$", sender.strip()[:320])
+    address = m.group(1).lower().rstrip(".") if m else ""
+    return address if EMAIL.match(address) else None
+
+
+def _their_confirmation(result, own_fingerprint):
+    """The other company's entry in a result's confirmation record, or None."""
+    entries = result.get("confirmations") or []
+    own = next((c for c in entries if c["file_fingerprint"] == own_fingerprint), None)
+    return next((c for c in entries if c is not own), None)
+
+
+def sender_problem(confirmation, sender):
+    """Why an email cannot be tied to the company whose file it carried, or None.
+
+    A company's file says where it is sent from: a domain the company
+    controls, or one full email address. The file counts as that company's
+    only if the email came from that address, or from an address at that
+    domain or a subdomain of it.
+    """
+    wanted = (confirmation or {}).get("sent_from")
+    if not wanted:
+        return None                       # no confirmation, so nothing can be executed
+    address = sender_address(sender)
+    if not address:
+        return ("the address the email came from was not given, so the file could "
+                f"not be tied to {wanted}, where the file says it is sent from")
+    host = address.rsplit("@", 1)[1]
+    ok = (address == wanted if "@" in wanted
+          else host == wanted or host.endswith("." + wanted))
+    if not ok:
+        return (f"the email came from {address}, not from {wanted}, where the file "
+                "says it is sent from")
+    return None
+
+
+def signing(result, executed):
+    """For the NDA document: each company's electronic execution details."""
+    return {c["party"]: {"date": executed, "confirmed_by": c["confirmed_by"],
+                         "confirmation_date": c["date"]}
+            for c in result.get("confirmations") or [] if c.get("confirmed")}
+
+
+def _save_handshake_record(record, result):
+    """Keep the record of an executed NDA in its deal folder."""
+    folder = record.get("deal_folder")
+    if not folder or not os.path.isdir(folder):
+        return None
+    mine, other = (("inviter", "replier") if record["role"] == "inviter"
+                   else ("replier", "inviter"))
+    data = {"protocol": _protocol(), "commitment": record["commitment"],
+            "terms_hash": result.get("terms_hash"),
+            mine + "_fingerprint": record["own_fingerprint"],
+            other + "_fingerprint": record.get(other + "_fingerprint"),
+            "this_company_role": mine,
+            "confirmations": result.get("confirmations"),
+            "executed": record.get("executed"),
+            "contested": record.get("contested") or record.get("ground"),
+            "state": ("contested; no NDA is in place"
+                      if record.get("contested") or record.get("ground")
+                      else f"executed on {record.get('executed')}")}
+    return _write(os.path.join(folder, "handshake-record.json"),
+                  json.dumps(data, indent=2) + "\n")
 
 
 # ------------------------------------------------------------ the three steps
@@ -545,9 +661,10 @@ def detect_kind(text):
 
 def own_company(own_source=None):
     """This company's legal name and positions, without starting anything."""
-    text, path = _own_text(own_source)
+    text, path = _own_text(own_source, need_confirmation=False)
     return {"name": _legal_name(text), "own_file_path": path,
-            "your_positions": positions_summary(FileText(text))}
+            "your_positions": positions_summary(FileText(text)),
+            "confirmation": check_file(FileText(text))["confirmation"]}
 
 
 def _record_version(record):
@@ -584,11 +701,18 @@ def list_exchanges():
         if r.get("role") == "inviter":
             state = (f"finished: {r.get('status')}" if r.get("revealed")
                      else "invitation sent; waiting for their reply")
+            if r.get("revealed") and r.get("contested"):
+                state = ("finished: contested by the other company (" + r["contested"]
+                         + "); no NDA is in place")
+            elif r.get("revealed") and r.get("executed"):
+                state = f"finished: NDA executed on {r['executed']}"
             other = r.get("replied_by") or r.get("counterparty") or "not yet known"
         else:
             if r.get("checked"):
-                state = ("finished: contested (" + r["ground"] + ")" if r.get("ground")
-                         else f"finished: {r.get('status')}")
+                state = ("finished: contested (" + r["ground"] + "); no NDA is in place"
+                         if r.get("ground") else f"finished: {r.get('status')}")
+                if not r.get("ground") and r.get("executed"):
+                    state = f"finished: NDA executed on {r['executed']}"
             else:
                 state = "reply sent; waiting for their reveal"
             other = r.get("invited_by") or "not yet known"
@@ -621,7 +745,11 @@ def make_invitation(purpose, own_source=None, counterparty=None):
 
 
 def make_reply(invitation_text, own_source=None):
-    """Step 2, replying company. Answer an invitation with this company's file."""
+    """Step 2, replying company. Answer an invitation with this company's file.
+
+    The reply is this company's offer to enter into the NDA the protocol
+    produces from the two files.
+    """
     inv = parse_block(invitation_text, "invitation")
     text, path = _own_text(own_source)
     fp = fingerprint(FileText(text))
@@ -639,36 +767,81 @@ def make_reply(invitation_text, own_source=None):
             "your_positions": positions_summary(FileText(text))}
 
 
-def make_reveal(reply_text, their_source, out_dir=None):
-    """Step 3, inviting company. Run the match and reveal this company's file."""
+def make_reveal(reply_text, their_source, out_dir=None, sender=None):
+    """Step 3, inviting company. Run the match and reveal this company's file.
+
+    sender is the address the reply email came from. It is used only to
+    tie the other company's file to the address or domain that file says
+    it is sent from. If it cannot be tied, nothing is revealed and
+    IdentityStop is raised.
+
+    An AGREED reveal is this company's acceptance of the other company's
+    offer. The NDA is executed by both companies when the reveal is sent.
+    """
     reply = parse_block(reply_text, "reply")
     record = _load_record("inviter", reply["commitment"])
     own = FileText(record["own_file"])
     result = run_match(own, their_source, record["purpose"])
     their_fp = fingerprint(their_source)
     status = result["status"]
-    fields = {"protocol": _protocol(), "commitment": record["commitment"],
-              "secret": record["secret"], "status": status}
-    if status == "AGREED":
-        fields.update({"terms-hash": result["terms_hash"],
-                       "inviter": record["own_fingerprint"],
-                       "replier": their_fp, "execution": "human"})
+    if record.get("revealed") and record.get("replier_fingerprint") != their_fp:
+        # Once this company's positions are revealed, a second reply could be
+        # shaped around them. Only the file first replied with is ever matched.
+        raise MatcherError(
+            "This invitation was already answered with a different file, and this "
+            "company's positions have been revealed. A second reply cannot be "
+            "matched. Start a new handshake instead.")
+    if status not in ("VERSION_MISMATCH", "OUT_OF_PROTOCOL"):
+        problem = sender_problem(_their_confirmation(result, record["own_fingerprint"]), sender)
+        if problem:
+            raise IdentityStop(
+                "Nothing was revealed and no NDA was made, because " + problem + ". "
+                "Ask the other company to send its reply from there.")
+    repeat = (record.get("revealed") and record.get("status") == status
+              and record.get("reveal_fields"))
+    if repeat:
+        # The same reveal again: what was already sent stands as it is.
+        fields = dict(record["reveal_fields"])
+    else:
+        fields = {"protocol": _protocol(), "commitment": record["commitment"],
+                  "secret": record["secret"], "status": status}
+        if status == "AGREED":
+            fields.update({"terms-hash": result["terms_hash"],
+                           "inviter": record["own_fingerprint"], "replier": their_fp,
+                           "executed": datetime.date.today().isoformat()})
+    executed = fields.get("executed")
     own_name = _legal_name(record["own_file"])
-    folder = _deal_folder(out_dir, reply["from"], record["commitment"], record.get("base"))
+    folder = record.get("deal_folder") if repeat else None
+    folder = folder or _deal_folder(out_dir, reply["from"], record["commitment"],
+                                    record.get("base"))
     own_path = _write(os.path.join(folder, "nda-handshake.md"), record["own_file"])
     _write(os.path.join(folder, "result.json"), json.dumps(result, indent=2) + "\n")
     record.update(revealed=True, replier_fingerprint=their_fp, status=status,
-                  deal_folder=folder, replied_by=reply["from"])
+                  deal_folder=folder, replied_by=reply["from"], reveal_fields=fields,
+                  executed=executed, terms_hash=result.get("terms_hash"))
     _save_record("inviter", record["commitment"], record)
+    if executed:
+        _save_handshake_record(record, result)
     return {"status": status, "message_block": format_block("reveal", fields),
             "attach": [own_path], "deal_folder": folder, "result": result,
             "replied_by": reply["from"], "own_name": own_name,
+            "executed": executed, "newly_executed": bool(executed and not repeat),
+            "signing": signing(result, executed) if executed else {},
             "report": None if status == "AGREED" else conflict_report(result, own_name)}
 
 
-def check_reveal(reveal_text, their_source, out_dir=None):
+def check_reveal(reveal_text, their_source, out_dir=None, sender=None):
     """Step 4, replying company. Check the reveal against the commitment and
-    against this company's own run."""
+    against this company's own run.
+
+    sender is the address the reveal email came from, used only to tie the
+    inviting company's file to the address or domain that file says it is
+    sent from.
+
+    If the reveal says AGREED and every check passes, the NDA was executed
+    by both companies when the reveal was sent. Otherwise the result
+    carries a contest block, and no NDA is in place once it is sent.
+    """
     rev = parse_block(reveal_text, "reveal")
     record = _load_record("replier", rev["commitment"])
     own = FileText(record["own_file"])
@@ -685,7 +858,7 @@ def check_reveal(reveal_text, their_source, out_dir=None):
     if not checks["their_file_matches_commitment"]:
         ground = "commitment-mismatch"
     elif rev["status"] == "AGREED":
-        for key in ("terms-hash", "inviter", "replier", "execution"):
+        for key in ("terms-hash", "inviter", "replier", "executed"):
             if key not in rev:
                 raise MatcherError(f"The reveal says AGREED but has no {key} line")
         checks["your_file_is_the_one_you_sent"] = rev["replier"] == record["own_fingerprint"]
@@ -697,6 +870,28 @@ def check_reveal(reveal_text, their_source, out_dir=None):
             ground = "status-mismatch"
         elif not checks["terms_hash_matches"]:
             ground = "terms-hash-mismatch"
+        else:
+            problem = sender_problem(
+                _their_confirmation(result, record["own_fingerprint"]), sender)
+            if problem and not sender_address(sender):
+                raise MatcherError(
+                    "Give the address the reveal email came from, copied from its From "
+                    "field. It is needed to tie the other company's file to that company.")
+            checks["their_email_is_from_where_their_file_says"] = problem is None
+            # The date of the acceptance cannot be before this company's offer
+            # or after today, give or take a day for time zones.
+            day = datetime.timedelta(days=1)
+            stated = datetime.date.fromisoformat(rev["executed"])
+            try:
+                offered = datetime.date.fromisoformat(record.get("created") or "")
+            except ValueError:
+                offered = stated
+            checks["the_date_is_plausible"] = (
+                offered - day <= stated <= datetime.date.today() + day)
+            if problem:
+                ground = "sender-mismatch"
+            elif not checks["the_date_is_plausible"]:
+                ground = "date-mismatch"
     elif not checks["status_matches"]:
         ground = "status-mismatch"
 
@@ -710,10 +905,43 @@ def check_reveal(reveal_text, their_source, out_dir=None):
         if result.get("terms_hash"):
             fields["my-hash"] = result["terms_hash"]
         contest = format_block("contest", fields)
-    record.update(checked=True, ground=ground, status=status, deal_folder=folder)
+    executed = rev["executed"] if ground is None and status == "AGREED" else None
+    newly = bool(executed and not (record.get("checked") and record.get("executed")))
+    record.update(checked=True, ground=ground, status=status, deal_folder=folder,
+                  inviter_fingerprint=their_fp, executed=executed,
+                  terms_hash=result.get("terms_hash"))
     _save_record("replier", record["commitment"], record)
+    if executed or (ground and rev["status"] == "AGREED"):
+        _save_handshake_record(record, result)
     return {"verified": ground is None, "ground": ground, "checks": checks,
             "status": status, "their_status": rev["status"], "contest_block": contest,
             "deal_folder": folder, "result": result, "own_name": own_name,
+            "executed": executed, "newly_executed": newly,
+            "signing": signing(result, executed) if executed else {},
             "report": conflict_report(result, own_name)
             if ground is None and status != "AGREED" else None}
+
+
+def receive_contest(message_text):
+    """Inviting company: the replying company contests the result.
+
+    A contest means no NDA is in place from this exchange. People look at
+    what went wrong, and the companies may start a new handshake.
+    """
+    c = parse_block(message_text, "contest")
+    try:
+        record = _load_record("inviter", c["commitment"])
+    except MatcherError:
+        return {"ground": c["ground"], "known": False}
+    was_executed = record.get("executed")
+    record.update(contested=c["ground"], executed=None)
+    _save_record("inviter", record["commitment"], record)
+    try:
+        with open(os.path.join(record.get("deal_folder") or "", "result.json"),
+                  encoding="utf-8") as f:
+            _save_handshake_record(record, json.load(f))
+    except (OSError, ValueError):
+        pass
+    return {"ground": c["ground"], "known": True, "was_executed": was_executed,
+            "counterparty": record.get("replied_by") or record.get("counterparty"),
+            "deal_folder": record.get("deal_folder")}

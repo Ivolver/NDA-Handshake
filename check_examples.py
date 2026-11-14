@@ -75,6 +75,12 @@ def main():
             how = next((e.get("how") for e in entries if e["term"] == term), None)
             if how != want:
                 problems.append(f"{term} reached by '{how}', expected '{want}'")
+        for want in case.get("missing", []):
+            if not any(m.endswith(": " + want) for m in got.get("missing_info", [])):
+                problems.append(f"missing_info does not list {want}")
+        if case["status"] == "AGREED" and not all(
+                c["confirmed"] for c in got.get("confirmations", [])):
+            problems.append("AGREED without both confirmations")
         if "conflicts" in case:
             got_names = sorted(c.split(":")[0] for c in got.get("conflicts", []))
             if got_names != sorted(case["conflicts"]):

@@ -1,5 +1,5 @@
 ---
-nda_handshake: "0.6"
+nda_handshake: "0.7"
 
 company:
   name: Northwind Example (fictional)
@@ -37,6 +37,13 @@ nda:
     accept: [none]
   residuals: require
   affiliate_sharing: accept
+
+confirmation:
+  confirmed_by: "Jane Sample, General Counsel"
+  date: "2026-11-02"
+  sent_from: "northwind.example"
+  text: "1ef05804d30038833d80240c40636c41f2e207cd87526e919a93ea4150e6e096"
+  positions: "ad1d7c06ff7140fe0f825095b8ad631481a18800a8f461d3644537f68bfe1e73"
 ---
 
 # Northwind Example Inc.

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/Ivolver/NDA-Handshake/main/schema/nda-handshake.schema.json",
-  "title": "nda-handshake.md fields, NDA Handshake protocol v0.6",
+  "title": "nda-handshake.md fields, NDA Handshake protocol v0.7",
   "description": "The YAML block at the top of an nda-handshake.md file. SPEC.md is the authority; this schema is a machine-readable aid. Unknown fields are allowed and ignored.",
   "type": "object",
   "required": [
@@ -14,7 +14,7 @@
     "nda_handshake": {
       "description": "Protocol version the file follows.",
       "enum": [
-        "0.6"
+        "0.7"
       ]
     },
     "company": {
@@ -533,6 +533,42 @@
             "reject",
             "require"
           ]
+        }
+      }
+    },
+    "confirmation": {
+      "type": "object",
+      "description": "The standing confirmation given by a person with authority to bind the company. Without a valid one, the file cannot complete a handshake.",
+      "required": [
+        "confirmed_by",
+        "date",
+        "sent_from",
+        "text",
+        "positions"
+      ],
+      "properties": {
+        "confirmed_by": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Name and title of the person who gave the confirmation."
+        },
+        "date": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "sent_from": {
+          "type": "string",
+          "description": "Where the company sends its file from: a domain the company controls, or one full email address. A public email service is accepted only as a full address."
+        },
+        "text": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "Fingerprint of the confirmation text for this protocol version."
+        },
+        "positions": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "Fingerprint of the nda block the confirmation was given for."
         }
       }
     }

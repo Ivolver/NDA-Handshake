@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Turn an agreed NDA Handshake result into a signable Word document.
+"""Turn an agreed NDA Handshake result into the NDA as a Word document.
 
 Reads the result.json written by match.py and produces a .docx holding:
   1. the Common Paper Mutual NDA Cover Page, filled in with the agreed terms
@@ -7,11 +7,14 @@ Reads the result.json written by match.py and produces a .docx holding:
   3. a one-page handshake record (not part of the agreement)
 
 Only an AGREED result can be turned into a document. Nothing here signs
-anything; the humans named on the Cover Page sign it.
+anything. Each company is shown with the electronic execution statement it
+adopted as its signature in its standing confirmation. An ordinary draft,
+made with no handshake, gets signature lines for people instead.
 
 Requires python-docx (pip install python-docx).
 """
 import argparse
+import datetime
 import json
 import os
 import re
@@ -140,23 +143,56 @@ def title(doc, text, page_break=False):
     return p
 
 
+def _long_date(iso):
+    d = datetime.date.fromisoformat(iso)
+    return f"{d:%B} {d.day}, {d.year}"
+
+
 def party_line(p):
     return f"a {p['formed_in']} {p['entity_type']}"
 
 
-def signature_block(doc, parties):
+NOT_EXECUTED = "Not executed. This copy was made outside a completed handshake."
+
+
+def execution_lines(party, mark, by_hand=False):
+    """The five lines under a party's name.
+
+    by_hand is for an ordinary draft: a signature line for a person.
+    Otherwise mark holds the date the NDA was executed and the details of
+    the company's standing confirmation, and the lines carry the mark the
+    company adopted as its signature in that confirmation: "/s/" and its
+    legal name. With no mark, the copy says it is not executed.
+    """
+    if by_hand:
+        return ["Signature:  " + "_" * 22,
+                "Print Name:  " + party["signatory_name"],
+                "Title:  " + party["signatory_title"],
+                "Notice Address:  " + party["notice_email"],
+                "Date:  " + "_" * 20]
+    if not mark:
+        return ["Signature:  " + NOT_EXECUTED, "Applied under its NDA Handshake Confirmation",
+                "Confirmation given by:  ",
+                "Notice Address:  " + party["notice_email"], "Date:  "]
+    return ["Signature:  /s/ " + party["legal_name"],
+            "Applied under its NDA Handshake Confirmation",
+            "Confirmation given by:  " + (mark.get("confirmed_by") or "")
+            + ", on " + (mark.get("confirmation_date") or ""),
+            "Notice Address:  " + party["notice_email"],
+            "Date:  " + (mark.get("date") or "")]
+
+
+def signature_block(doc, parties, signing=None, by_hand=False):
     """Two signature blocks side by side, one table row per line so they stay aligned."""
     grey = RGBColor(0x55, 0x55, 0x55)
+    lines = [execution_lines(p, (signing or {}).get(p["legal_name"]), by_hand)
+             for p in parties]
     rows = [
         ([f"PARTY {i}" for i in (1, 2)], dict(size=8.5, color=grey)),
         ([p["legal_name"].upper() for p in parties], dict(bold=True)),
         ([party_line(p) for p in parties], dict(size=9.5)),
-        (["Signature:  " + "_" * 22] * 2, dict(before=12)),
-        (["Print Name:  " + p["signatory_name"] for p in parties], {}),
-        (["Title:  " + p["signatory_title"] for p in parties], {}),
-        (["Notice Address:  " + p["notice_email"] for p in parties], {}),
-        (["Date:  " + "_" * 20] * 2, {}),
-    ]
+        ([column[0] for column in lines], dict(before=12)),
+    ] + [([column[i] for column in lines], {}) for i in range(1, 5)]
     table = doc.add_table(rows=0, cols=2)
     for index, (texts, fmt) in enumerate(rows):
         row = table.add_row()
@@ -249,14 +285,22 @@ def summary_table(doc, summary):
     style_table(table, [1.3, 1.15, 1.15, 1.0, 1.7], pad=50)
 
 
-def build(result, draft_by=None):
+def build(result, draft_by=None, signing=None):
     """Build the MNDA document.
 
     draft_by: the legal name of a company proposing these terms as an
     ordinary draft, with no handshake behind them. The document then has no
     handshake record or terms hash, and ends with a short note saying what
     it is.
+
+    signing: for an NDA executed through a handshake, a map from each
+    company's legal name to the date the NDA was executed and the person
+    and date of its standing confirmation. Each company then gets the
+    electronic execution statement, and the Effective Date is that date.
+    Without it, a handshake result is written as a copy that is not
+    executed.
     """
+    signing = signing or {}
     terms = result["terms"]
     form = FORMS.get(terms["form"])
     if form is None:
@@ -273,8 +317,13 @@ def build(result, draft_by=None):
         props.comments = (f"Unsigned draft proposed by {draft_by}. "
                           "Not the result of a handshake.")
     else:
+        names = [p["legal_name"] for p in terms["parties"]]
+        executed = all((signing.get(name) or {}).get("date") for name in names)
+        state = ("Executed by both parties under their standing confirmations. "
+                 "Produced by" if executed
+                 else "Not executed. A copy of the terms produced by")
         props.keywords = f"nda-handshake; terms-hash:{result['terms_hash']}"
-        props.comments = ("Unsigned draft produced by the NDA Handshake matcher. "
+        props.comments = (f"{state} the NDA Handshake matcher. "
                           f"Terms hash (SHA-256): {result['terms_hash']}")
     props.author = "NDA Handshake"
     normal = doc.styles["Normal"]
@@ -329,7 +378,12 @@ def build(result, draft_by=None):
     law_text = ("The laws of the District of Columbia." if law == "District of Columbia"
                 else f"The laws of the State of {law}.")
     field_row(table, "Purpose", "How Confidential Information may be used", [terms["purpose"]])
-    field_row(table, "Effective Date", None, ["Date of last Cover Page signature"])
+    dates = {(signing.get(p["legal_name"]) or {}).get("date") for p in terms["parties"]}
+    effective = "Date of last Cover Page signature"
+    if not draft_by:
+        effective = (_long_date(dates.pop()) if len(dates) == 1 and None not in dates
+                     else "Not executed")
+    field_row(table, "Effective Date", None, [effective])
     field_row(table, "MNDA Term", "Period for sharing Confidential Information", [
         f"☒  Expires {terms['nda_term_years']} year(s) from Effective Date.",
         "☐  Continues until terminated in accordance with the terms of the MNDA."])
@@ -354,7 +408,7 @@ def build(result, draft_by=None):
         "Page above. By signing this Cover Page, each party agrees to enter into this MNDA "
         "as of the Effective Date.")
 
-    signature_block(doc, terms["parties"])
+    signature_block(doc, terms["parties"], signing, by_hand=bool(draft_by))
 
     # 2. Standard Terms, attached for convenience
     title(doc, "Standard Terms", page_break=True)
@@ -416,6 +470,12 @@ def build(result, draft_by=None):
             ("Terms hash (SHA-256)", result["terms_hash"])]
     rows += [("Input file fingerprint (SHA-256)", fp)
              for fp in result.get("file_fingerprints", [])]
+    for p in terms["parties"]:
+        mark = signing.get(p["legal_name"])
+        rows.append(("Execution: " + p["legal_name"],
+                     "Not executed" if not mark else
+                     f"Executed {mark.get('date')} under its NDA Handshake Confirmation, "
+                     f"given by {mark.get('confirmed_by')} on {mark.get('confirmation_date')}"))
     for label, value in rows:
         cells = record.add_row().cells
         shade(cells[0])
@@ -428,7 +488,7 @@ def build(result, draft_by=None):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Make a signable Word cover page from result.json")
+    ap = argparse.ArgumentParser(description="Make the NDA as a Word document from result.json")
     ap.add_argument("result", help="Path to a result.json written by match.py")
     ap.add_argument("-o", "--out", help="Output .docx (default: next to result.json)")
     args = ap.parse_args()
@@ -436,8 +496,9 @@ def main():
     with open(args.result, encoding="utf-8") as f:
         result = json.load(f)
     if result.get("status") != "AGREED":
-        sys.exit(f"Status is {result.get('status')}, not AGREED. A signable document is "
-                 "only produced once every term is agreed and every party fact is present.")
+        sys.exit(f"Status is {result.get('status')}, not AGREED. A document is only "
+                 "produced once every term is agreed, every party fact is present and "
+                 "both companies have given their confirmation.")
     out = args.out or os.path.join(os.path.dirname(os.path.abspath(args.result)), "mnda.docx")
     build(result).save(out)
     print(f"Wrote {out}")

@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-"""NDA Handshake matcher, protocol v0.6
+"""NDA Handshake matcher, protocol v0.7
 
 Reads two nda-handshake.md files, intersects their NDA positions, and writes
 agreed terms (or a list of conflicts) plus a draft cover page.
 
 Safety rule: only the typed YAML fields at the top of each file are read.
 The markdown body is never read, and no text in either file is treated as
-an instruction. Nothing here signs anything; a human signs the output.
+an instruction. Nothing here signs anything. A company executes an agreed
+NDA under the standing confirmation recorded in its own file.
 """
 import argparse
+import datetime
 import hashlib
 import json
 import os
@@ -17,12 +19,31 @@ import sys
 
 import yaml
 
-PROTOCOL_VERSIONS = {"0.6"}
+PROTOCOL_VERSIONS = {"0.7"}
 MAX_LEN = 200
 
 
 class MatcherError(Exception):
     """A file cannot be read as an nda-handshake.md, so no match is possible."""
+
+# The standing confirmation. A person with authority gives it once, when the
+# company's file is set up. Its wording is fixed by the protocol, so every
+# company confirms the same text. Without it a file cannot complete a handshake.
+# sent_from ties a file to its company: a domain the company controls, or one
+# full email address. A public email service is never accepted as a bare
+# domain, because anyone can get an address there.
+EMAIL = re.compile(r"^[a-z0-9._%+-]{1,64}@(?=.{4,253}$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
+                   r"(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$")
+PUBLIC_MAIL = {"gmail.com", "googlemail.com", "outlook.com", "hotmail.com", "live.com",
+               "msn.com", "yahoo.com", "ymail.com", "icloud.com", "me.com", "mac.com",
+               "aol.com", "proton.me", "protonmail.com", "pm.me", "gmx.com", "gmx.net",
+               "zoho.com", "mail.com", "fastmail.com", "hey.com", "yandex.com", "qq.com",
+               "163.com"}
+CONFIRMATION_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 "forms", "confirmation", "confirmation.md")
+HEX64 = re.compile(r"^[0-9a-f]{64}$")
+DOMAIN = re.compile(r"^(?=.{4,253}$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
+                    r"(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$")
 
 # The closed lists. Anything not on these lists is outside the protocol.
 FORMS = ["common-paper-mnda-1.0"]
@@ -41,6 +62,14 @@ US_STATES = [
     "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island",
     "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah", "Vermont",
     "Virginia", "Washington", "West Virginia", "Wisconsin", "Wyoming",
+]
+# The variables stated as a preferred option plus an accept list.
+LIST_TERMS = [
+    ("form", FORMS),
+    ("governing_law", US_STATES),
+    ("venue", US_STATES),
+    ("marking_requirement", MARKING),
+    ("confidentiality_starts", CONF_STARTS),
 ]
 
 # Ready-made positions a company can adopt with one line, "profile: default".
@@ -433,6 +462,97 @@ def match_toggle(name, a, b, conflicts, notes, trace=None):
     return included
 
 
+def confirmation_text():
+    """The fixed wording a company confirms, with Unix line endings."""
+    with open(CONFIRMATION_FILE, encoding="utf-8", newline="") as f:
+        return f.read().replace("\r\n", "\n").replace("\r", "\n")
+
+
+def confirmation_text_fingerprint():
+    return hashlib.sha256(confirmation_text().encode("utf-8")).hexdigest()
+
+
+def positions_fingerprint(data):
+    """A fingerprint of the nda block of a file, as its YAML reads.
+
+    A confirmation is given for one set of positions. If any position
+    changes, this fingerprint changes and the confirmation stops applying
+    until it is given again.
+    """
+    nda = data.get("nda") if isinstance(data.get("nda"), dict) else {}
+    canonical = json.dumps(nda, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def usable_sent_from(value):
+    """True for a company domain or a full email address, in lower case."""
+    if not isinstance(value, str):
+        return False
+    if "@" in value:
+        return bool(EMAIL.match(value))
+    return bool(DOMAIN.match(value)) and value not in PUBLIC_MAIL
+
+
+def read_confirmation(data, label, problems):
+    """One file's standing confirmation, or None if it has no usable one.
+
+    Anything missing or wrong means no confirmation, so no mistake in a
+    file can make a company execute an NDA.
+    """
+    raw = data.get("confirmation")
+    if raw is None:
+        problems.append(f"{label}: the file has no confirmation")
+        return None
+    if not isinstance(raw, dict):
+        problems.append(f"{label}: confirmation must be a block of fields")
+        return None
+    date = raw.get("date")
+    if isinstance(date, datetime.date):          # YAML reads an unquoted date as a date
+        date = date.isoformat()[:10]
+    date = clean(date)
+    try:
+        datetime.date.fromisoformat(date or "")
+    except ValueError:
+        date = None
+    found = {
+        "confirmed_by": clean(raw.get("confirmed_by")),
+        "date": date,
+        "sent_from": (clean(raw.get("sent_from")) or "").lower(),
+        "text": (clean(raw.get("text")) or "").lower(),
+        "positions": (clean(raw.get("positions")) or "").lower(),
+    }
+    if not usable_sent_from(found["sent_from"]):
+        found["sent_from"] = None
+    bad = [key for key, value in found.items() if not value]
+    if bad:
+        problems.append(f"{label}: confirmation has no usable " + ", ".join(bad))
+        return None
+    if found["text"] != confirmation_text_fingerprint():
+        problems.append(f"{label}: the confirmation was given for a different "
+                        "confirmation text than this protocol version uses")
+        return None
+    if found["positions"] != positions_fingerprint(data):
+        problems.append(f"{label}: the positions changed after the confirmation "
+                        "was given, so it has to be given again")
+        return None
+    return found
+
+
+def unstated_terms(nda):
+    """The terms a file takes no usable position on, after its profile is applied."""
+    out, scrap = [], []
+    for name, allowed in LIST_TERMS:
+        if not ranked(nda.get(name), allowed, name, "", scrap):
+            out.append(name)
+    for name, bounds in RANGES.items():
+        if read_range(nda.get(name), bounds, name, "", scrap) is None:
+            out.append(name)
+    for t in TOGGLES:
+        if (clean(nda.get(t)) or "").lower() not in TOGGLE_POSITIONS:
+            out.append(t)
+    return out
+
+
 def render(terms, digest, status):
     def party_block(p):
         return (
@@ -462,8 +582,8 @@ def render(terms, digest, status):
     lines = [
         "# Draft NDA Cover Page",
         "",
-        f"Status: {status}. This is an unsigned draft produced by the NDA Handshake "
-        "matcher. It binds no one until a human signs it.",
+        f"Status: {status}. This is a summary produced by the NDA Handshake matcher. "
+        "The NDA is executed through the sealed exchange, not by this page.",
         "",
         f"Form: {show(terms['form'])} (mutual)",
         "",
@@ -476,7 +596,7 @@ def render(terms, digest, status):
         "| Term | Value |",
         "|---|---|",
         f"| Purpose | {terms['purpose'] or 'MISSING'} |",
-        "| Effective Date | Date of last signature |",
+        "| Effective Date | The date the NDA is executed |",
         f"| MNDA Term | {show(terms['nda_term_years'], ' year(s) from Effective Date')} |",
         f"| Term of Confidentiality | {conf} |",
         f"| Governing Law | {show(terms['governing_law'])} |",
@@ -526,14 +646,16 @@ def check_file(path):
     profile = clean(nda.get("profile"))
     nda, defaulted = apply_profile(nda, party["formed_in"], "Party", bad_values)
 
-    list_checks = [
-        ("form", FORMS),
-        ("governing_law", US_STATES),
-        ("venue", US_STATES),
-        ("marking_requirement", MARKING),
-        ("confidentiality_starts", CONF_STARTS),
-    ]
-    for name, allowed in list_checks:
+    # The standing confirmation, and the two things it depends on.
+    confirmation_problems = []
+    confirmation = read_confirmation(data, "Party", confirmation_problems)
+    silent = unstated_terms(nda)
+    if silent:
+        confirmation_problems.append(
+            "Party: a handshake needs a stated position on every term; "
+            "none stated for " + ", ".join(silent))
+
+    for name, allowed in LIST_TERMS:
         if ranked(nda.get(name), allowed, name, "Party", bad_values) is None:
             unstated.append(name)
 
@@ -563,10 +685,21 @@ def check_file(path):
         "unstated_variables": unstated,
         "profile": profile if profile in PROFILES else None,
         "terms_from_profile": sorted(defaulted),
+        "confirmation": {
+            "confirmed": confirmation is not None,
+            "ready": confirmation is not None and not silent,
+            "confirmed_by": (confirmation or {}).get("confirmed_by"),
+            "date": (confirmation or {}).get("date"),
+            "sent_from": (confirmation or {}).get("sent_from"),
+            "text_fingerprint": confirmation_text_fingerprint(),
+            "positions_fingerprint": positions_fingerprint(data),
+            "problems": confirmation_problems,
+        },
     }
 
 
-def run_match(file_a, file_b, purpose, entity_a=None, entity_b=None):
+def run_match(file_a, file_b, purpose, entity_a=None, entity_b=None,
+              require_confirmation=True):
     """Match two nda-handshake.md files and return the structured result.
 
     Reads only the typed YAML fields at the top of each file. The markdown
@@ -574,6 +707,12 @@ def run_match(file_a, file_b, purpose, entity_a=None, entity_b=None):
     instruction. Returns a plain dict shaped like result.json; writes no
     files and prints nothing. Raises MatcherError if a file cannot be read
     as an nda-handshake.md (no YAML block, bad YAML, no usable entity).
+
+    With require_confirmation (the default, and the rule for every
+    handshake), each company must have given its standing confirmation and
+    stated a position on every term. Otherwise the result is at most
+    AGREED_PENDING_INFO and nothing is executed. It is turned off only to
+    read one company's own positions, for a summary or an ordinary draft.
     """
     a, b = load(file_a), load(file_b)
     prints = sorted([fingerprint(file_a), fingerprint(file_b)])
@@ -652,6 +791,24 @@ def run_match(file_a, file_b, purpose, entity_a=None, entity_b=None):
     # The summary shows how each term was reached. It is not part of the terms or the hash.
     # Like the parties, it is ordered by legal name, so file order does not change it.
     name_a, name_b = party_a["legal_name"] or "", party_b["legal_name"] or ""
+    confirmations = []
+    for label, name, source, data, nda in (("Party A", name_a, file_a, a, na),
+                                           ("Party B", name_b, file_b, b, nb)):
+        problems = []
+        found = read_confirmation(data, label, problems)
+        silent = unstated_terms(nda)
+        if require_confirmation:
+            if found is None:
+                missing.append(f"{label}: confirmation")
+                notes.extend(problems)
+            for term in silent:
+                missing.append(f"{label}: a position on {term}")
+        confirmations.append({
+            "party": name, "file_fingerprint": fingerprint(source),
+            "confirmed": found is not None,
+            "confirmed_by": (found or {}).get("confirmed_by"),
+            "date": (found or {}).get("date"),
+            "sent_from": (found or {}).get("sent_from")})
     if name_a.lower() > name_b.lower():
         name_a, name_b = name_b, name_a
         for entry in trace:
@@ -667,11 +824,17 @@ def run_match(file_a, file_b, purpose, entity_a=None, entity_b=None):
     else:
         status = "AGREED"
 
+    # Each company's standing confirmation. Like the summary, this is a
+    # record: it is not part of the terms or the terms hash, and it is
+    # ordered by legal name.
+    confirmations.sort(key=lambda entry: entry["party"].lower())
+
     canonical = json.dumps(terms, sort_keys=True, separators=(",", ":"))
     digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     return dict(base, status=status, terms_hash=digest, terms=terms,
                 conflicts=conflicts, missing_info=missing,
-                open_items=open_items, notes=notes, summary=summary)
+                open_items=open_items, notes=notes, summary=summary,
+                confirmations=confirmations)
 
 
 def main():

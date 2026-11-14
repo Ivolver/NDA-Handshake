@@ -1,5 +1,5 @@
 ---
-nda_handshake: "0.6"
+nda_handshake: "0.7"
 
 company:
   name: Harbor Example (fictional)
@@ -39,6 +39,13 @@ nda:
     accept: [none, written-marked]
   residuals: reject
   affiliate_sharing: accept
+
+confirmation:
+  confirmed_by: "Alex Sample, Chief Executive Officer"
+  date: "2026-11-02"
+  sent_from: "harbor.example"
+  text: "1ef05804d30038833d80240c40636c41f2e207cd87526e919a93ea4150e6e096"
+  positions: "9ef2c42eb6ec310386d7ab328dfec1dad4ad8ee93e4d9043bcc8a04afa84036c"
 ---
 
 # Harbor Example LLC

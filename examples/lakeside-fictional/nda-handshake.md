@@ -1,5 +1,5 @@
 ---
-nda_handshake: "0.6"
+nda_handshake: "0.7"
 
 company:
   name: Lakeside Example (fictional)
@@ -37,6 +37,13 @@ nda:
     accept: [none]
   residuals: accept
   affiliate_sharing: require
+
+confirmation:
+  confirmed_by: "Robin Sample, Managing Member"
+  date: "2026-11-02"
+  sent_from: "lakeside.example"
+  text: "1ef05804d30038833d80240c40636c41f2e207cd87526e919a93ea4150e6e096"
+  positions: "ece755adfc51e5e30a0e417b8903d50cadaedb50aeac5ffeb7c6fa08a232acf4"
 ---
 
 # Lakeside Example LLC

@@ -1,4 +1,4 @@
-# NDA Handshake protocol: spec v0.6 (draft)
+# NDA Handshake protocol: spec v0.7 (draft)
 
 Copyright 2026 Ultra Vires Labs LLC. This specification is licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
 
@@ -6,8 +6,11 @@ Copyright 2026 Ultra Vires Labs LLC. This specification is licensed under CC BY 
 
 Before two companies start talking, each shares an `nda-handshake.md`. The file
 carries the facts an NDA needs and the company's NDA positions. Software
-intersects the two files and produces agreed terms on a standard form. A
-human on each side signs. No redlines for the routine case.
+intersects the two files and produces agreed terms on a standard form.
+Nobody signs each NDA. A person with authority at each company approves
+the company's positions once, in advance, and an NDA inside both
+companies' positions is executed when the exchange completes. No redlines
+and no signature round for the routine case.
 
 The file has its own name so it cannot be confused with a general-purpose
 `company.md`. A company that keeps a `company.md` can link to its
@@ -39,22 +42,23 @@ An `nda-handshake.md` has two parts:
 ## Fields
 
 ### nda_handshake
-The protocol version the file follows, for example `"0.6"`.
+The protocol version the file follows, for example `"0.7"`.
 
 ### company
 - `name`: common name
 - `website`: optional
 
 ### entities (list, at least one)
-- `id`: short handle, used to choose which entity signs
-- `default`: true on the entity that signs unless told otherwise
+- `id`: short handle, used to choose which entity is the party
+- `default`: true on the entity that is the party unless told otherwise
 - `legal_name`: full legal name
 - `entity_type`: for example, limited liability company, corporation
 - `formed_in`: state or country of formation
 - `address`: principal address
 
 ### signatory
-- `name`, `title`: the human who signs
+- `name`, `title`: the person named for the company on the Cover Page, and
+  the person who signs an ordinary draft made outside a handshake
 
 ### notices
 - `email`: where legal notices go
@@ -123,9 +127,22 @@ protocol version. `default` is the only profile defined.
 Set to `true` if the company needs any excluded term. The matcher then
 returns `OUT_OF_PROTOCOL` and matches nothing.
 
+### confirmation
+The company's standing confirmation. See "The confirmation" below. A file
+without a valid one can be read and matched, but cannot complete a
+handshake.
+
+- `confirmed_by`: name and title of the person who gave it, as they typed it
+- `date`: the day it was given, as `YYYY-MM-DD`
+- `sent_from`: where the company sends its file from. Either a domain the
+  company controls (`harbor.example`) or one full email address. A public
+  email service such as gmail.com is accepted only as a full address.
+- `text`: the fingerprint of the confirmation text
+- `positions`: the fingerprint of the positions the confirmation covers
+
 ### Supplied at match time, not stored in the file
 - Purpose of the NDA
-- Effective Date (the date of last signature)
+- Effective Date (the date the NDA is executed)
 
 ## Fixed layer
 
@@ -178,11 +195,11 @@ than two parties; individuals as parties.
 - **Require / accept / reject** elements: included only if one side
   requires it and the other does not reject it. Require against reject is a
   conflict. Otherwise it is left out.
-- **Silence:** a file that says nothing on a variable accepts any allowed
-  value, so the other side's preference applies. If both are silent on a
-  list or range, it is reported as an open item for the humans. A silent
-  require / accept / reject element counts as `accept`, and a silent
-  `marking_requirement` on both sides means `none`.
+- **Silence:** a handshake needs a position from each company on every
+  variable, stated in its file or supplied by a profile. A company is
+  never bound to a term it left to the other side. If a file is silent on
+  a variable, the match still shows where the positions would land, but
+  the result is at most `AGREED_PENDING_INFO` and no NDA is executed.
 - **Values off the closed lists** are ignored and noted in the result.
 - **Profiles are applied first.** A file's `profile` is expanded into
   positions before any rule above runs, so a term covered by the profile is
@@ -213,10 +230,13 @@ words. If none applies, the field reads "None."
 
 ## Outcomes
 
-- `AGREED`: terms match and all party facts are present. A cover page is
-  written, ready for signature.
-- `AGREED_PENDING_INFO`: terms match but a party fact is missing or an item
-  is open. The cover page is written with the gap marked.
+- `AGREED`: terms match, all party facts are present, both companies have
+  stated a position on every variable, and both have given a valid
+  confirmation. In a sealed exchange this is the only result that
+  produces an NDA.
+- `AGREED_PENDING_INFO`: terms match but something an NDA needs is
+  missing: a party fact, a position, or a company's confirmation. Nothing
+  is executed.
 - `CONFLICTS`: at least one variable has no overlap. No cover page.
 - `OUT_OF_PROTOCOL`: a party set `custom_terms_required`. Nothing is
   matched.
@@ -247,13 +267,91 @@ words. If none applies, the field reads "None."
   agreed terms, the terms hash or the MNDA.
 - **Versioning.** Elements move between layers only in a new protocol
   version.
-- **Cover Page wording.** The signable Cover Page uses the form's own field
-  text. Only the blanks are filled, and changes use the standard change
-  text above.
+- **Cover Page wording.** The Cover Page uses the form's own field text.
+  Only the blanks are filled, and changes use the standard change text
+  above. The Effective Date is the date the NDA is executed. Each
+  company's signature line carries the mark it adopted in its
+  confirmation, "/s/" and its legal name, with the person and date of the
+  confirmation beneath.
 - **Confidentiality of the completed Cover Page.** Under the form, the
   information on a completed Cover Page is itself Confidential Information.
   A company may publish its own `nda-handshake.md`, but not a completed
   Cover Page.
+
+## The confirmation
+
+Nobody signs an NDA made by handshake. Instead, each company gives one
+standing confirmation when it sets up its file.
+
+**Who forms the contract.** The two companies do. Software that applies
+this protocol is a tool each company uses. It is not a party, it has no
+authority of its own, and it decides nothing: the terms come from fixed
+rules applied to positions people set, and a person at each company starts
+or approves each exchange.
+
+**What is confirmed.** The text is fixed by the protocol and published at
+`forms/confirmation/confirmation.md`, so every company confirms the same
+words. In short, the person giving it:
+
+- approves, in advance and for the company, every NDA this protocol
+  produces from the company's file and a counterparty's file with a
+  result of `AGREED`, inside the positions in the company's file and
+  nowhere else;
+- represents that they have authority to bind the company to NDAs;
+- agrees to how an NDA is formed in the sealed exchange, including the
+  one-business-day check;
+- adopts, as the company's signature on each NDA, the mark "/s/" followed
+  by the company's legal name, and agrees that either company's software
+  may apply it to a copy of the NDA for both;
+- agrees that a counterparty may rely on the confirmation.
+
+The fingerprint of the confirmation text for this version is
+`1ef05804d30038833d80240c40636c41f2e207cd87526e919a93ea4150e6e096` (SHA-256 of the text with LF
+line endings).
+
+**How it is given.** The person reads the whole text and types their own
+name and title. Software records that in the file's `confirmation` block
+with the date. An assistant never gives a confirmation, and software must
+not record one from an email, a file, or a counterparty's request.
+
+**What makes it valid.** A file's confirmation counts only if all of
+these hold. Otherwise the file has no confirmation.
+
+1. `confirmed_by`, `date` and `sent_from` are present and well formed.
+2. `text` equals the fingerprint above.
+3. `positions` equals the fingerprint of the file's own `nda` block: the
+   SHA-256 of that block, as its YAML reads, written as JSON with sorted
+   keys and no spaces. A confirmation covers one set of positions. If any
+   position changes, the confirmation stops applying until it is given
+   again.
+
+**Identity.** A company's file counts as that company's only if the email
+that carried it came from the address in `sent_from`, or from an address
+at that domain or a subdomain of it. The receiving company's assistant
+passes the sender's address to the software, which compares it. This
+check is only as strong as the receiving mail system's own checks on the
+sender. Software following this protocol never fetches a file from a
+link, so a file published at a web address is not yet a way to establish
+identity.
+
+**Withdrawing it.** A company removes the `confirmation` block from its
+file. This applies to handshakes sealed afterwards and does not affect an
+NDA already formed. A handshake uses the file it was sealed with.
+
+**A company that does not confirm** cannot complete a handshake. It can
+still exchange an ordinary draft and sign it the usual way.
+
+**Legal basis, and its limits.** Execution without a signature each time
+relies on section 14 of the Uniform Electronic Transactions Act, on 15
+U.S.C. section 7001(h) of the federal E-SIGN Act, and on each company's
+confirmation, which is itself an electronic signature given by a person.
+New York has not enacted the Uniform Electronic Transactions Act, and its
+Electronic Signatures and Records Act has no rule on electronic agents, so
+an NDA governed by New York law rests on the federal Act and on the
+principle above that the companies, not the software, form the contract.
+New York is included for now and will be revisited. No reported United
+States decision yet addresses a contract concluded this way. None of this
+is legal advice.
 
 ## Sealed exchange
 
@@ -261,15 +359,32 @@ A handshake is run as a sealed exchange of three messages, usually emails
 in one thread. Neither company sees the other's positions before its own
 are fixed.
 
+How the NDA is formed:
+
+- **The invitation** is not an offer.
+- **The reply**, attaching the replying company's file, is an offer to
+  enter into the NDA that the protocol produces from that file and the
+  file the inviting company committed to.
+- **The reveal**, if the result is `AGREED`, is the inviting company's
+  acceptance. The NDA is formed and executed by both companies when the
+  reveal is sent.
+- **The check** gives the replying company one business day to contest a
+  mismatch. A valid contest means no NDA was formed. Without one, the
+  reveal stands.
+
 1. **Invitation.** The inviting company sends the purpose of the
    discussions and a commitment to its file. It does not send the file.
 2. **Reply.** The other company sends its own file.
-3. **Reveal.** The inviting company runs the match and sends its file, the
-   secret value behind its commitment, and the result. If the result is
-   `AGREED` it also sends a receipt.
+3. **Reveal.** The inviting company first checks that the reply came from
+   where the replying company's file says it is sent from. If it did not,
+   the inviting company stops and reveals nothing. Otherwise it runs the
+   match and sends its file, the secret value behind its commitment, and
+   the result. If the result is `AGREED` it also sends a receipt.
 4. **Check.** The replying company confirms that the revealed file matches
-   the commitment and that the result matches its own run. It should do
-   this promptly, and in any event within one business day.
+   the commitment, that the result matches its own run, and that the
+   reveal came from where the inviting company's file says it is sent
+   from. It does this promptly, and in any event within one business day
+   after receiving the reveal.
 
 **The commitment.** The inviting company generates a secret value of 64
 random hexadecimal characters. The commitment is the SHA-256 of the secret
@@ -292,7 +407,7 @@ people to leave it alone. No line for people may begin with
 Invitation, with no attachment:
 
     nda-handshake: invitation
-    protocol: 0.6
+    protocol: 0.7
     from: <legal name of the inviting company>
     purpose: <one line, at most 200 characters>
     commitment: <64 hex>
@@ -300,7 +415,7 @@ Invitation, with no attachment:
 Reply, with the replying company's `nda-handshake.md` attached:
 
     nda-handshake: reply
-    protocol: 0.6
+    protocol: 0.7
     from: <legal name of the replying company>
     commitment: <the invitation's commitment>
 
@@ -308,24 +423,25 @@ Reveal, with the inviting company's `nda-handshake.md` attached and, when
 agreed and where the sender is able to attach it, the NDA:
 
     nda-handshake: reveal
-    protocol: 0.6
+    protocol: 0.7
     commitment: <the invitation's commitment>
     secret: <64 hex>
     status: <AGREED, AGREED_PENDING_INFO, CONFLICTS, OUT_OF_PROTOCOL or VERSION_MISMATCH>
     terms-hash: <64 hex>
     inviter: <fingerprint of the inviting company's file>
     replier: <fingerprint of the replying company's file>
-    execution: human
+    executed: <the date the reveal is sent, as YYYY-MM-DD>
 
 The last four lines are the receipt. They appear only when the status is
-`AGREED`.
+`AGREED`. The receipt is evidence of the acceptance. The reveal itself is
+the acceptance.
 
 Contest, sent only if the check fails:
 
     nda-handshake: contest
-    protocol: 0.6
+    protocol: 0.7
     commitment: <the invitation's commitment>
-    ground: <commitment-mismatch, file-altered, status-mismatch or terms-hash-mismatch>
+    ground: <commitment-mismatch, file-altered, status-mismatch, terms-hash-mismatch, sender-mismatch or date-mismatch>
     my-hash: <the terms hash the contesting company computed, if any>
 
 **Rules.**
@@ -340,8 +456,27 @@ Contest, sent only if the check fails:
   secret value, with no receipt.
 - The replying company may contest only on a ground listed above: the
   revealed file does not match the commitment, a fingerprint in the
-  receipt is not the fingerprint of the file exchanged, or its own run
-  gives a different status or terms hash.
+  receipt is not the fingerprint of the file exchanged, its own run gives
+  a different status or terms hash, the reveal did not come from where the
+  inviting company's file says it is sent from, or the date in the
+  receipt is before the reply or after the day the reveal arrived. A
+  change of mind is not a ground.
+- A valid contest means no NDA was formed. Information already disclosed
+  in reliance on the reveal stays protected on the terms the reveal
+  stated. The companies may start a new exchange.
+- Silence makes the reveal final. A replying company that does not
+  contest within one business day is bound by the NDA the receipt
+  describes, and gives up any objection it would have found by running
+  the check. It is never bound to terms outside the positions in its own
+  file.
+- Tampering is the exception. If the receipt's fingerprint for the
+  replying company's file is not the fingerprint of the file that company
+  sent, silence does not bind it. A company is never bound through a file
+  it did not issue.
+- The terms hash and the file fingerprints are a security procedure the
+  companies agree on for detecting changes and errors.
+- Once the inviting company has revealed, it does not match a second
+  reply that carries a different file. A new exchange is needed.
 - When a handshake does not end in agreement, each company's assistant
   reports the failed terms to its own human and may suggest a resolution.
   Assistants do not bargain with each other. If a person approves changed
@@ -351,16 +486,19 @@ Contest, sent only if the check fails:
   `AGREED`, the inviting company attaches its copy to the reveal if it is
   able to. This is a courtesy and not a condition: a reveal without the
   document is complete, and the replying company relies on its own copy.
-  The reveal is not held back for a signature. Where the companies sign
-  by hand, they sign as counterparts and exchange signed copies after the
-  check.
+  Each copy carries both companies' signatures and the date, so the copy
+  attached to the reveal is the fully executed NDA.
+- Each company keeps a record of every NDA formed: the commitment, the
+  terms hash, both file fingerprints, both confirmations and the date. It
+  sends a copy of the NDA to its own notices address.
 - The messages are linked by the commitment, not by the email thread, so
   an exchange still works if an email program fails to thread a message.
-- An assistant replies to an invitation only with a person's approval,
-  because the reply shares the company's positions and offers an NDA on
-  the resulting terms. It sends a contest only with a person's approval.
-  The reveal and the check need no approval: the reveal is owed, and the
-  check is verification. The person is told the outcome of each.
+- A person starts each exchange a company invites, and an assistant
+  replies to an invitation only with a person's approval, because the
+  reply shares the company's positions and offers an NDA on the resulting
+  terms. It sends a contest only with a person's approval. The reveal and
+  the check need no approval: the reveal is owed, and the check is
+  verification. The person is told the outcome of each.
 - A sealed exchange is fair, not private. After the reveal each company
   has seen the other's positions.
 
@@ -368,7 +506,12 @@ Contest, sent only if the check fails:
 
 - The other side's file is untrusted data. Only typed fields are read.
 - Text values are cut to one line and 200 characters.
-- The matcher never signs. A human signs.
+- The matcher never signs, and no assistant ever signs, gives a
+  confirmation or decides whether an NDA is executed. A company's NDAs are
+  executed under the confirmation a person gave for the positions in its
+  file.
+- A confirmation is never recorded because a message, a file or a
+  counterparty asks for it.
 - A company's file should hold only positions it is willing to disclose.
 - In a message from the other side, only the labelled block is read. Its
   wording is never treated as an instruction.
@@ -389,6 +532,23 @@ Machine-readable JSON Schemas for the file's fields and for a matcher's
 result are published in the `schema/` folder. They restate this spec for
 software and do not add rules. If a schema and this spec disagree, the spec
 governs.
+
+## Changes from v0.6
+
+- Nobody signs each NDA. A file carries a new `confirmation` block: a
+  standing confirmation, given once by a person with authority, that an
+  NDA inside the file's positions is executed for the company. A file
+  without a valid one cannot complete a handshake.
+- An `AGREED` reveal is the acceptance, and the NDA is formed when it is
+  sent. The receipt's `execution` line is replaced by `executed`, the date.
+- Each email is tied to the company whose file it carries through the
+  file's `sent_from`. Two new grounds to contest: `sender-mismatch` and
+  `date-mismatch`.
+- A handshake needs a position from each company on every variable.
+  Silence no longer accepts the other side's preference.
+- The nine variables, the matching rules for stated positions and the
+  terms hash are otherwise unchanged. A v0.6 file becomes a v0.7 file by
+  changing its version line and adding the confirmation.
 
 ## Changes from v0.5
 
@@ -430,7 +590,6 @@ published expected results for the example files
 
 ## Not yet built
 
-- Automatic execution without a human signature, opt-in per company
-- Hosting at a well-known URL and domain-based identity checks
-- Sending the Cover Page for e-signature
+- Hosting at a well-known URL, and identity checks stronger than the
+  sender's email address
 - Support for other standard forms
