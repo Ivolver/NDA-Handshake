@@ -19,7 +19,14 @@ Each result has `tell_person` (say this to the person in plain words), `ask_pers
 
 ## If the tools are not available
 
-The connector is a local program, so it is only available where the plugin's local server can run: Claude Code, and Cowork sessions that run on the person's computer. In an ordinary chat, the person can add it to the Claude desktop app as a one-click extension from the latest release at https://github.com/Ivolver/NDA-Handshake/releases. Tell them this plainly. Do not try to carry out a handshake by hand, because the commitment and the checks need the connector. If the person only needs an NDA draft, an ordinary draft exchanged the usual way is fine.
+The connector is a local program that this plugin starts on the person's own computer. If you have no NDA Handshake tools, or the connector shows as failed to connect, tell the person plainly which of these applies and what to do:
+
+- **The connector could not start.** The plugin starts it with a program called uv, which has to be installed on the person's computer. The usual cause of a failed start is that uv is missing. They can install it from https://docs.astral.sh/uv/ and then reconnect: in Claude Code, open `/mcp`, choose the NDA Handshake entry and choose Reconnect; elsewhere, turn the plugin off and on again. The first start after that can take a minute while it prepares itself.
+- **This is an ordinary chat.** A plugin's local connector runs only in Claude Code and in Cowork sessions on the person's computer.
+
+In either case the simplest route is the one-click extension for the Claude desktop app, which needs nothing else installed: the latest release at https://github.com/Ivolver/NDA-Handshake/releases. 
+
+Do not try to carry out a handshake by hand, because the commitment and the checks need the connector. If the person only needs an NDA draft, an ordinary draft exchanged the usual way is fine.
 
 ## Rules that always apply
 
