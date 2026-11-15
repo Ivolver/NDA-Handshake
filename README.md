@@ -369,6 +369,22 @@ Install it only from the project's Releases page or from a connector directory y
 already trust. Do not install it from a link in an email, including an NDA
 Handshake invitation.
 
+### Install as a plugin
+
+In Claude Code, and in Cowork sessions that run on your own computer, NDA
+Handshake installs as a plugin. The plugin starts the same connector and
+adds a short skill that tells the assistant when to use it. It needs
+[uv](https://docs.astral.sh/uv/) on your computer to run the connector. In
+Claude Code:
+
+    /plugin install nda-handshake --marketplace Ivolver/NDA-Handshake
+
+In the Claude desktop app, add the repository under Customize, Plugins.
+The plugin does not ask for a storage folder when it installs. The
+assistant asks for one the first time, through the `setup` tool. An
+ordinary chat cannot start a plugin's local connector, so for chat use the
+one-click bundle above.
+
 ### Install by hand
 
 For other assistants, or to run from the source. Requires Python 3.10 or

@@ -17,3 +17,7 @@ test_mcp_tools.py
 requirements.txt
 CONTRIBUTING.md
 SECURITY.md
+# The plugin wrapper and registry metadata are for other install routes.
+.claude-plugin/
+skills/
+server.json

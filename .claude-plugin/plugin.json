@@ -1,0 +1,36 @@
+{
+  "name": "nda-handshake",
+  "displayName": "NDA Handshake",
+  "version": "0.12.2",
+  "description": "Put a standard mutual NDA in place with another company by a sealed exchange of three emails, with no redlines and no signature round.",
+  "author": {
+    "name": "Ultra Vires Labs LLC",
+    "url": "https://github.com/Ivolver/NDA-Handshake"
+  },
+  "homepage": "https://github.com/Ivolver/NDA-Handshake",
+  "repository": "https://github.com/Ivolver/NDA-Handshake",
+  "license": "Apache-2.0",
+  "keywords": [
+    "nda",
+    "legal",
+    "contracts",
+    "confidentiality",
+    "mcp"
+  ],
+  "icon": "./icon.png",
+  "documentationUrl": "https://github.com/Ivolver/NDA-Handshake#readme",
+  "supportUrl": "https://github.com/Ivolver/NDA-Handshake/issues",
+  "privacyPolicyUrl": "https://github.com/Ivolver/NDA-Handshake#privacy",
+  "mcpServers": {
+    "nda-handshake": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--frozen",
+        "--project",
+        "${CLAUDE_PLUGIN_ROOT}",
+        "${CLAUDE_PLUGIN_ROOT}/mcp_server.py"
+      ]
+    }
+  }
+}

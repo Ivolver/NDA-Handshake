@@ -70,6 +70,23 @@ async def run() -> int:
         pyproject = open(os.path.join(HERE, "pyproject.toml"), encoding="utf-8").read()
         check("the bundle manifest and pyproject.toml agree on the version",
               f'version = "{manifest["version"]}"' in pyproject)
+
+        # The plugin wrapper and the registry metadata describe the same release.
+        with open(os.path.join(HERE, ".claude-plugin", "plugin.json"), encoding="utf-8") as fh:
+            plugin = json.load(fh)
+        plugin_server = plugin["mcpServers"]["nda-handshake"]
+        with open(os.path.join(HERE, "server.json"), encoding="utf-8") as fh:
+            registry = json.load(fh)
+        check("the plugin and the registry metadata carry the same version as the bundle",
+              plugin["version"] == manifest["version"] == registry["version"]
+              == registry["packages"][0]["version"]
+              and registry["packages"][0]["identifier"].endswith(
+                  f'/v{manifest["version"]}/nda-handshake-{manifest["version"]}.mcpb'))
+        check("the plugin starts the connector from its own folder with a locked install",
+              plugin_server["command"] == "uv" and "--frozen" in plugin_server["args"]
+              and plugin_server["args"][-1] == "${CLAUDE_PLUGIN_ROOT}/mcp_server.py"
+              and os.path.isfile(os.path.join(HERE, "uv.lock"))
+              and os.path.isfile(os.path.join(HERE, "skills", "nda-handshake", "SKILL.md")))
         wanted = {ln.split(">=")[0].strip() for ln in
                   open(os.path.join(HERE, "requirements.txt"), encoding="utf-8")
                   if ln.strip() and not ln.startswith("#")} - {"jsonschema"}

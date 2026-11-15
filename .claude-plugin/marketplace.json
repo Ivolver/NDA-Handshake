@@ -1,0 +1,15 @@
+{
+  "name": "nda-handshake",
+  "description": "NDA Handshake: put a standard mutual NDA in place by a sealed exchange of three emails.",
+  "owner": {
+    "name": "Ultra Vires Labs LLC",
+    "url": "https://github.com/Ivolver/NDA-Handshake"
+  },
+  "plugins": [
+    {
+      "name": "nda-handshake",
+      "source": "./",
+      "description": "Put a standard mutual NDA in place with another company by a sealed exchange of three emails, with no redlines and no signature round."
+    }
+  ]
+}

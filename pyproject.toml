@@ -1,6 +1,6 @@
 [project]
 name = "nda-handshake"
-version = "0.12.1"
+version = "0.12.2"
 description = "Put a standard mutual NDA in place by a sealed exchange of three emails."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -9,4 +9,13 @@ dependencies = [
     "mcp>=2.3",
     "pyyaml>=6.0",
     "python-docx>=1.1",
+]
+
+[tool.uv]
+# The platforms the lock file covers. Keeping this to the ones people run
+# the connector on keeps uv.lock small.
+environments = [
+    "sys_platform == 'darwin'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+    "sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')",
 ]

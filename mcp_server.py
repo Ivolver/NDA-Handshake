@@ -66,6 +66,8 @@ When a result has `send` and no `ask_person`, send it right away. Any approval i
 
 If a result has `notify`, send that email too. It goes to the person's own company, at its own notices address, as a record that an NDA was executed. Attach the files in `notify.attach_if_possible` if you can.
 
+Threading: when `send.in_thread` is true, send the email as a true reply to the message that carried the block you were given, using your mail tool's reply function, so the whole exchange stays in one conversation. Do not send a new message with a "Re:" subject. If you cannot reply in the same conversation, send anyway and tell the person.
+
 Attachments: every file in `send.attach` must be attached. Files in `send.attach_if_possible` (the NDA document, on a reveal that ends in agreement) should be attached too if you are able to. If you cannot attach them, send the email anyway without them and tell the person; the other side produces an identical copy of the NDA from its own run, so the exchange does not depend on it.
 
 Standing rules:

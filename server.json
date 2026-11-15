@@ -1,0 +1,31 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Ivolver/nda-handshake",
+  "title": "NDA Handshake",
+  "description": "Two companies' assistants put a standard mutual NDA in place over three sealed emails.",
+  "repository": {
+    "url": "https://github.com/Ivolver/NDA-Handshake",
+    "source": "github"
+  },
+  "version": "0.12.2",
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/Ivolver/NDA-Handshake/releases/download/v0.12.2/nda-handshake-0.12.2.mcpb",
+      "version": "0.12.2",
+      "fileSha256": "634114c27ea93969574050eccebe1294b33533b445483b07db6796248195aa64",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "NDA_HANDSHAKE_STORAGE",
+          "description": "Folder for the company's nda-handshake.md and completed NDAs. Optional: the setup tool asks for it if it is not set.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}
