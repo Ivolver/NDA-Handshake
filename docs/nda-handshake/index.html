@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NDA Handshake: you have been invited</title>
+<meta name="description" content="Someone invited you to put a standard mutual NDA in place with NDA Handshake. Here is what that means and what to do next.">
+<link rel="icon" href="icon.png">
+<style>
+  :root {
+    --ink: #17211f; --soft: #4d5b58; --line: #d9e0de; --paper: #f6f8f7; --card: #ffffff;
+    --accent: #1f6f66; --accent-ink: #ffffff; --tint: #e6f1ef; --warn: #7a5a12; --warn-tint: #fbf3dc;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink: #e9efed; --soft: #a9b6b3; --line: #2b3835; --paper: #111917; --card: #18221f;
+            --accent: #57b8ac; --accent-ink: #0c1513; --tint: #1c2c29; --warn: #e6c873; --warn-tint: #2a2412; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+         font: 17px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 22px; }
+  header { padding: 44px 0 8px; }
+  .brand { display: flex; align-items: center; gap: 12px; font-weight: 650; letter-spacing: .01em; }
+  .brand img { width: 40px; height: 40px; border-radius: 9px; }
+  h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.12; margin: 28px 0 14px; letter-spacing: -.02em; }
+  .lede { font-size: 20px; color: var(--soft); max-width: 44em; margin: 0 0 8px; }
+  h2 { font-size: 24px; margin: 46px 0 6px; letter-spacing: -.01em; }
+  h3 { font-size: 19px; margin: 0 0 6px; }
+  p { margin: 10px 0; }
+  a { color: var(--accent); }
+  .choices { display: grid; gap: 16px; margin: 26px 0 8px; }
+  @media (min-width: 760px) { .choices { grid-template-columns: 1fr 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px 22px 20px; }
+  .card.primary { border-color: var(--accent); }
+  .tag { display: inline-block; font-size: 13px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase;
+         color: var(--accent); background: var(--tint); border-radius: 999px; padding: 3px 10px; margin-bottom: 10px; }
+  .time { color: var(--soft); font-size: 15px; }
+  ol, ul { padding-left: 22px; margin: 10px 0; }
+  li { margin: 7px 0; }
+  .say { display: block; background: var(--tint); border-radius: 9px; padding: 10px 13px; margin: 8px 0;
+         font: 15.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; }
+  .button { display: inline-block; background: var(--accent); color: var(--accent-ink); text-decoration: none;
+            font-weight: 650; padding: 12px 18px; border-radius: 10px; margin: 6px 0 2px; }
+  .button:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  .note { background: var(--warn-tint); color: var(--warn); border-radius: 10px; padding: 12px 15px; margin: 16px 0; font-size: 16px; }
+  .steps { display: grid; gap: 12px; margin: 16px 0; }
+  @media (min-width: 760px) { .steps { grid-template-columns: repeat(3, 1fr); } }
+  .step { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .step b { display: block; color: var(--accent); font-size: 14px; letter-spacing: .04em; text-transform: uppercase; }
+  details { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 4px 18px; margin: 10px 0; }
+  summary { cursor: pointer; font-weight: 650; padding: 12px 0; }
+  details[open] summary { border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+  footer { color: var(--soft); font-size: 15px; border-top: 1px solid var(--line); margin-top: 56px; padding: 22px 0 46px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><img src="icon.png" alt=""><span>NDA Handshake</span></div>
+    <h1>You have been invited to put an NDA in place the fast way.</h1>
+    <p class="lede">Someone sent you an NDA Handshake invitation. You have two good options. Both end with the same standard mutual NDA, and neither costs anything.</p>
+  </header>
+
+  <main>
+    <div class="choices">
+      <section class="card">
+        <span class="tag">Fastest today</span>
+        <h3>Just ask for a draft</h3>
+        <p class="time">About ten seconds. Nothing to install.</p>
+        <p>Reply to the invitation email and say:</p>
+        <span class="say">Please send a draft the usual way.</span>
+        <p>You will get an ordinary NDA on the same standard form, as a Word document, to review and sign as you normally would. You can try a handshake another time.</p>
+      </section>
+
+      <section class="card primary">
+        <span class="tag">No redlines, no signatures</span>
+        <h3>Do the handshake</h3>
+        <p class="time">About fifteen minutes the first time. About one minute after that.</p>
+        <p>Your assistant and theirs work out the NDA between them. You will need:</p>
+        <ul>
+          <li>The Claude desktop app on a Mac or Windows computer.</li>
+          <li>Someone who can approve NDAs for your company. That may be you.</li>
+        </ul>
+        <a class="button" href="https://github.com/Ivolver/NDA-Handshake/releases/latest/download/nda-handshake.mcpb">Download the connector</a>
+        <p class="time">Free and open source. It runs on your own computer.</p>
+      </section>
+    </div>
+
+    <h2>How to do the handshake</h2>
+    <ol>
+      <li><strong>Add the connector.</strong> Download it with the button above and open the file. The Claude desktop app shows what it does, asks which folder should hold your files, and installs it.</li>
+      <li><strong>Set up your company.</strong> In a new chat, say:
+        <span class="say">Set up NDA Handshake for my company.</span>
+        Your assistant asks for your company's details and helps you choose the NDA terms you will accept. You can take the balanced defaults, or hand it a few NDAs your company has already signed and let it propose terms from those.</li>
+      <li><strong>Approve your terms, once.</strong> Your assistant shows a short confirmation. Someone with authority to approve NDAs for your company reads it and types their name. This replaces signing each NDA, so read it properly.</li>
+      <li><strong>Answer the invitation.</strong> Say:
+        <span class="say">Handle the NDA Handshake invitation in my inbox.</span>
+        Your assistant asks you once before it replies. If the two companies' terms meet, the NDA is in place as soon as the other side sends the result, and a copy is saved in your folder.</li>
+    </ol>
+    <div class="note">If your terms and theirs do not meet, nothing is agreed. Each assistant tells its own person which terms differed, and people take it from there.</div>
+
+    <h2>What actually happens</h2>
+    <div class="steps">
+      <div class="step"><b>1. Sealed invitation</b>The inviting company locks in its terms and sends only a sealed code. Nobody can see its terms yet, and it cannot change them later.</div>
+      <div class="step"><b>2. Your reply</b>Your assistant sends your company's terms. Because theirs were sealed first, they cannot adjust to yours.</div>
+      <div class="step"><b>3. The result</b>They open their terms. Both assistants apply the same public rules and reach the same NDA. Yours checks theirs independently.</div>
+    </div>
+    <p>The agreement is the <a href="https://commonpaper.com/standards/mutual-nda/1.0">Common Paper Mutual NDA</a>, a widely used standard form. Only nine terms can vary, such as how long the NDA lasts and which state's law governs. Everything else is the standard text, unchanged.</p>
+    <p><a href="https://github.com/Ivolver/NDA-Handshake#readme">Read the full explanation</a></p>
+
+    <h2>Fair questions</h2>
+    <details>
+      <summary>Is it safe to install something because an email told me to?</summary>
+      <p>Be careful with that instinct, and keep it. Do not install anything attached to an email. Get the connector only from this page or from the project's public releases page. It is open source, so anyone can read exactly what it does, and the Claude desktop app shows you what it can access before you install it.</p>
+      <p>If you are unsure, ask for a draft the usual way. That is always a fine answer.</p>
+    </details>
+    <details>
+      <summary>What does the connector do with my information?</summary>
+      <p>It runs on your own computer. Your company's file and your completed NDAs stay in a folder you choose. Nothing is sent to the people who make NDA Handshake, and it fetches nothing from the internet. The only thing that leaves is what your own assistant emails to the other company, at your direction: your company's NDA terms and, at the end, the agreed NDA.</p>
+    </details>
+    <details>
+      <summary>What am I agreeing to when I type my name?</summary>
+      <p>You are approving, in advance and for your company, any NDA that a handshake produces inside the terms you chose, and stating that you have authority to do that. After that, a matching NDA is in place without anyone signing it. It covers only the terms in your file on that day. If you change a term, you approve again. You can withdraw the approval at any time.</p>
+      <p>Read the exact wording before you agree: <a href="https://github.com/Ivolver/NDA-Handshake/blob/main/forms/confirmation/confirmation.md">the confirmation text</a>.</p>
+    </details>
+    <details>
+      <summary>Can the other company's assistant talk mine into something?</summary>
+      <p>No. The assistants do not negotiate. The result comes from fixed public rules applied to the terms each company wrote down. Your assistant reads only a short labelled block in each email and ignores any other instructions in it. You are never taken outside the terms you approved.</p>
+    </details>
+    <details>
+      <summary>Is an NDA made this way legally binding?</summary>
+      <p>It is designed to be. It relies on United States law that allows contracts to be formed by electronic means and through software acting for a company, and on each company's own advance approval. It is also new. No court has yet ruled on an agreement made in exactly this way. This page is not legal advice, and you should have your own lawyer look at it before you rely on it for anything important.</p>
+    </details>
+    <details>
+      <summary>I do not use the Claude desktop app. Can I still take part?</summary>
+      <p>Not with one click yet. Reply and ask for a draft the usual way. The protocol is open, and support for other assistants is something we would like to see.</p>
+    </details>
+    <details>
+      <summary>Can I see it work before I decide?</summary>
+      <p>Yes. The project page links to a demo you can step through in about a minute, and to the full specification.</p>
+      <p><a href="https://github.com/Ivolver/NDA-Handshake">Open the project page</a></p>
+    </details>
+  </main>
+
+  <footer>
+    NDA Handshake is a free, open-source protocol published by Ultra Vires Labs LLC. Code under the Apache 2.0 license, specification under CC BY 4.0. Not legal advice.
+    <br><a href="https://github.com/Ivolver/NDA-Handshake">Project and source</a> · <a href="../">Ultra Vires Labs</a>
+  </footer>
+</div>
+</body>
+</html>

@@ -436,6 +436,8 @@ def conflict_report(result, own_name):
 
 DIVIDER = "--- for the assistants (please leave this part as it is) ---"
 PROJECT_URL = "https://github.com/Ivolver/NDA-Handshake"
+# The page a person who receives an invitation is sent to.
+INVITED_URL = "https://ultravireslabs.com/nda-handshake"
 MARKING_WORDS = {
     "none": "none",
     "written-marked": "written information must be marked confidential",
@@ -495,11 +497,15 @@ def invitation_email(own_name, purpose, block):
         "advance. If your assistant already knows NDA Handshake, just ask it to",
         "handle this email.",
         "",
-        "New to it? The page below shows how to add it. It takes a few minutes, and",
-        "your assistant can work out your positions from NDAs you have already",
-        "signed. Or simply reply and we will send a draft the old-fashioned way.",
+        "New to it? You have two easy options:",
         "",
-        f"About NDA Handshake and how to add it: {PROJECT_URL}",
+        "  - Just reply \"please send a draft\" and we will send an ordinary NDA the",
+        "    usual way. That takes ten seconds.",
+        "  - Or try the handshake. The page below explains it in plain words. The",
+        "    first time takes about fifteen minutes and needs someone who can approve",
+        "    NDAs for your company. After that it takes about a minute.",
+        "",
+        f"What this is and what to do next: {INVITED_URL}",
     ], block)
 
 

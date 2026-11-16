@@ -388,6 +388,19 @@ async def run() -> int:
         second = _structured(await client.call_tool("handshake", {"purpose": PURPOSE}))
         check("handshake asks for the company's file next",
               second.get("step") == "file_needed" and second.get("send") is None)
+        import sealed as _sealed
+        cold_invitation = "Hello,\n\nSome text.\n\n" + _sealed.format_block("invitation", {
+            "protocol": "0.7", "from": "Lakeside Example LLC", "purpose": PURPOSE,
+            "commitment": "ab" * 32})
+        cold = _structured(await client.call_tool("handshake", {
+            "message_text": cold_invitation, "sender": "legal@lakeside.example"}))
+        check("a newcomer handed an invitation is told who invited them, what setup "
+              "involves, and that asking for an ordinary draft is fine",
+              cold.get("step") == "file_needed" and cold.get("send") is None
+              and cold["tell_person"].startswith("Lakeside Example LLC has invited")
+              and "about fifteen minutes" in cold["tell_person"]
+              and "send an NDA the usual way" in cold["tell_person"]
+              and cold["details"]["invited_by"] == "Lakeside Example LLC")
         guide = second["details"].get("onboarding", {})
         check("onboarding offers three ways, including reading the company's own NDAs",
               len(guide.get("three_ways_to_set_positions", [])) == 3
@@ -506,7 +519,9 @@ async def run() -> int:
               and inv_body.startswith("Hello,")
               and f"What we would like to discuss: {PURPOSE}" in inv_body
               and inv_body.rstrip().splitlines()[-5].startswith("nda-handshake:")
-              and "New to it? The page below shows how to add it." in inv_body
+              and "New to it? You have two easy options:" in inv_body
+              and "please send a draft" in inv_body
+              and "https://ultravireslabs.com/nda-handshake" in inv_body
               and "Nobody\nhas to sign anything" in inv_body
               and "executed at that moment" in started["tell_person"]
               and "NDA Handshake: Harbor Example LLC" in started["send"]["subject"]

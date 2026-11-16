@@ -7,6 +7,10 @@ emails, with no redlines and no signature round.
 
 Protocol v0.7. This is not legal advice.
 
+**Received an invitation?** Start at
+[ultravireslabs.com/nda-handshake](https://ultravireslabs.com/nda-handshake),
+which explains your options in plain words.
+
 ## The idea
 
 Most NDAs between companies say nearly the same thing, yet each one still

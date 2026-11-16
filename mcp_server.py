@@ -678,16 +678,34 @@ def handshake(message_text: str = "", attachment_content: str = "",
         # Setup comes first, whatever was asked.
         if not sealed.storage_folder():
             return out("setup_needed",
-                       "NDA Handshake is not set up on this computer yet.",
+                       "NDA Handshake is not set up on this computer yet. The first step is "
+                       "choosing where it keeps your files.",
                        ask="Which folder should I keep your company's NDA Handshake file "
                            "and completed NDAs in?",
                        then="Call setup with that folder, then call handshake again "
                             "with the same inputs.")
         own_path = sealed.own_file_path()
         if not (own_path and os.path.isfile(own_path)):
-            return out("file_needed",
-                       "Your company does not have an nda-handshake.md yet. It holds "
-                       "the company's details and its NDA positions.",
+            # A newcomer who has just been handed an invitation gets the whole
+            # road ahead in one view, and the easy way out.
+            invited_by = None
+            if message_text and sealed.detect_kind(message_text) == "invitation":
+                try:
+                    invited_by = sealed.parse_block(message_text, "invitation")["from"]
+                except MatcherError:
+                    invited_by = None
+            intro = ((f"{invited_by} has invited your company to put an NDA in place by "
+                      "NDA Handshake, and your company is not set up for it yet. Setting up "
+                      "takes about fifteen minutes, once. There are three steps and I will "
+                      "take you through them in this conversation: your company's details, "
+                      "the NDA terms you will accept, and a one-time confirmation from "
+                      "someone who can approve NDAs for the company. Then I answer the "
+                      "invitation for you. If you would rather not do this now, say so and "
+                      "I will draft a short reply asking them to send an NDA the usual way.")
+                     if invited_by else
+                     "Your company does not have an nda-handshake.md yet. It holds "
+                     "the company's details and its NDA positions.")
+            return out("file_needed", intro,
                        ask="Shall I set it up now? I need the company's legal name, entity "
                            "type, state of formation, address, the signer's name and title, "
                            "and an email for legal notices. For your NDA positions there are "
@@ -699,8 +717,10 @@ def handshake(message_text: str = "", attachment_content: str = "",
                             "(and, if they came from documents, which document each came "
                             "from), get the person's agreement, call draft_file again with "
                             "save=true, then call confirm, then call handshake again with "
-                            "the same inputs.",
-                       onboarding=ONBOARDING)
+                            "the same inputs. If the person would rather not set up, do not "
+                            "press them: offer to draft a one-line reply to the invitation "
+                            "asking for a draft the usual way.",
+                       invited_by=invited_by, onboarding=ONBOARDING)
 
         # A handshake needs the company's standing confirmation.
         own_text, version_moved = _own_file_for_confirmation()

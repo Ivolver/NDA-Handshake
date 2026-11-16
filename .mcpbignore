@@ -21,4 +21,5 @@ SECURITY.md
 .claude-plugin/
 skills/
 plugins/
+docs/
 server.json
