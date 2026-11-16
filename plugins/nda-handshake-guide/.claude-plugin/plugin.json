@@ -1,0 +1,18 @@
+{
+  "name": "nda-handshake-guide",
+  "displayName": "NDA Handshake",
+  "version": "0.12.4",
+  "description": "Teaches your assistant to put a standard mutual NDA in place with another company by a sealed exchange of three emails, with no redlines and no signature round.",
+  "author": {
+    "name": "Ultra Vires Labs LLC",
+    "url": "https://github.com/Ivolver/NDA-Handshake"
+  },
+  "homepage": "https://github.com/Ivolver/NDA-Handshake",
+  "repository": "https://github.com/Ivolver/NDA-Handshake",
+  "license": "Apache-2.0",
+  "keywords": ["nda", "legal", "contracts", "confidentiality"],
+  "icon": "./icon.png",
+  "documentationUrl": "https://github.com/Ivolver/NDA-Handshake#readme",
+  "supportUrl": "https://github.com/Ivolver/NDA-Handshake/issues",
+  "privacyPolicyUrl": "https://github.com/Ivolver/NDA-Handshake#privacy"
+}

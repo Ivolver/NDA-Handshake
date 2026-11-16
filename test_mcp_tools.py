@@ -82,6 +82,21 @@ async def run() -> int:
               == registry["packages"][0]["version"]
               and registry["packages"][0]["identifier"].endswith(
                   f'/v{manifest["version"]}/nda-handshake-{manifest["version"]}.mcpb'))
+        guide_dir = os.path.join(HERE, "plugins", "nda-handshake-guide")
+        with open(os.path.join(guide_dir, ".claude-plugin", "plugin.json"), encoding="utf-8") as fh:
+            guide = json.load(fh)
+        with open(os.path.join(guide_dir, "skills", "nda-handshake", "SKILL.md"), encoding="utf-8") as fh:
+            guide_skill = fh.read()
+        with open(os.path.join(HERE, "skills", "nda-handshake", "SKILL.md"), encoding="utf-8") as fh:
+            full_skill = fh.read()
+        rules = full_skill[full_skill.index("## Rules that always apply"):]
+        check("the guide-only plugin runs nothing and carries the same rules",
+              guide["version"] == manifest["version"] and "mcpServers" not in guide
+              and "hooks" not in guide and rules in guide_skill
+              and os.path.isfile(os.path.join(guide_dir, "README.md"))
+              and os.path.isfile(os.path.join(guide_dir, "LICENSE"))
+              and sorted(os.listdir(guide_dir))
+              == [".claude-plugin", "LICENSE", "README.md", "icon.png", "skills"])
         check("the plugin starts the connector from its own folder with a locked install",
               plugin_server["command"] == "uv" and "--frozen" in plugin_server["args"]
               and plugin_server["args"][-1] == "${CLAUDE_PLUGIN_ROOT}/mcp_server.py"

@@ -9,7 +9,12 @@
     {
       "name": "nda-handshake",
       "source": "./",
-      "description": "Put a standard mutual NDA in place with another company by a sealed exchange of three emails, with no redlines and no signature round."
+      "description": "The NDA Handshake connector and its guide, for Claude Code and Cowork. Needs uv on your computer."
+    },
+    {
+      "name": "nda-handshake-guide",
+      "source": "./plugins/nda-handshake-guide",
+      "description": "The guide only: one skill and no program. Use it with the one-click NDA Handshake extension for the Claude desktop app."
     }
   ]
 }

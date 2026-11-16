@@ -20,4 +20,5 @@ SECURITY.md
 # The plugin wrapper and registry metadata are for other install routes.
 .claude-plugin/
 skills/
+plugins/
 server.json

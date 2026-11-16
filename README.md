@@ -380,6 +380,9 @@ Claude Code:
     /plugin install nda-handshake --marketplace Ivolver/NDA-Handshake
 
 In the Claude desktop app, add the repository under Customize, Plugins.
+The repository also offers a second, smaller plugin, `nda-handshake-guide`,
+which holds only the skill and runs nothing. It is for people who use the
+one-click bundle and want the assistant to have the guide as well.
 The plugin does not ask for a storage folder when it installs. The
 assistant asks for one the first time, through the `setup` tool. An
 ordinary chat cannot start a plugin's local connector, so for chat use the
