@@ -554,7 +554,8 @@ async def run() -> int:
               and inv_body.startswith("Hello,")
               and f"What we would like to discuss: {PURPOSE}" in inv_body
               and inv_body.rstrip().splitlines()[-5].startswith("nda-handshake:")
-              and "New to it? You have two easy options:" in inv_body
+              and "Ask your AI assistant to read this email" in inv_body
+              and "You have two easy options:" in inv_body
               and "please send a draft" in inv_body
               and "https://ultravireslabs.com/nda-handshake" in inv_body
               and "Nobody\nhas to sign anything" in inv_body

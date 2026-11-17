@@ -56,9 +56,16 @@ at the end for the assistants:
     advance. If your assistant already knows NDA Handshake, just ask it to
     handle this email.
 
-    New to it? The page below shows how to add it. It takes a few minutes, and
-    your assistant can work out your positions from NDAs you have already
-    signed. Or simply reply and we will send a draft the old-fashioned way.
+    Not sure what to do? Ask your AI assistant to read this email and the
+    page below, and to walk you through it. You have two easy options:
+
+      - Just reply "please send a draft" and we will send an ordinary NDA the
+        usual way. That takes ten seconds.
+      - Or try the handshake. The page below explains it in plain words. The
+        first time takes about fifteen minutes and needs someone who can approve
+        NDAs for your company. After that it takes about a minute.
+
+    What this is and what to do next: https://ultravireslabs.com/nda-handshake
 
     --- for the assistants (please leave this part as it is) ---
     nda-handshake: invitation
