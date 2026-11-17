@@ -14,6 +14,26 @@
          font: 18px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
   .wrap { max-width: 720px; margin: 0 auto; padding: 14vh 22px 60px; }
   h1 { font-size: clamp(34px, 6vw, 52px); line-height: 1.08; letter-spacing: -.02em; margin: 0 0 12px; }
+  h1 { display: flex; align-items: baseline; gap: .22em; }
+  .bulb { height: 1.2em; width: auto; flex: none; overflow: visible; }
+  .bulb path { fill: none; stroke: var(--ink); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+  .bulb .tip { fill: var(--ink); stroke-width: 1.5; }
+  .bulb .wire { stroke-width: 1.6; }
+  .bulb .filament { stroke: #f2a11d; stroke-width: 2.4; filter: drop-shadow(0 0 2.5px #ffc04d) drop-shadow(0 0 7px rgba(255,170,40,.85)); animation: flicker 7s linear infinite; }
+  .bulb .glow { fill: #ffc24a; opacity: .3; filter: blur(7px); animation: glow 7s linear infinite; }
+  @keyframes flicker {
+    0%, 41%, 44%, 46.5%, 71%, 73%, 100% { opacity: 1; }
+    42%, 45.5% { opacity: .25; }
+    43% { opacity: .8; }
+    72% { opacity: .45; }
+  }
+  @keyframes glow {
+    0%, 41%, 44%, 46.5%, 71%, 73%, 100% { opacity: .3; }
+    42%, 45.5% { opacity: .05; }
+    43% { opacity: .22; }
+    72% { opacity: .12; }
+  }
+  @media (prefers-reduced-motion: reduce) { .bulb .filament, .bulb .glow { animation: none; } }
   .tag { font-size: 15px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin: 0 0 14px; }
   .lede { font-size: 21px; color: var(--soft); margin: 0 0 44px; }
   h2 { font-size: 15px; letter-spacing: .12em; text-transform: uppercase; color: var(--soft); font-weight: 600; margin: 0 0 14px; }
@@ -24,27 +44,36 @@
   .card strong { display: block; font-size: 21px; color: var(--accent); margin-bottom: 4px; }
   .card .where { display: block; font-size: 15px; color: var(--soft); margin-top: 10px; }
   footer { color: var(--soft); font-size: 15px; margin-top: 60px; }
+  footer a { color: inherit; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <p class="tag">Beyond technology's limitations</p>
-  <h1>Ultra Vires Labs</h1>
+  <p class="tag">Building at the frontier</p>
+  <h1>
+    <span>Ultra Vires Labs</span>
+    <svg class="bulb" viewBox="0 0 64 92" aria-hidden="true">
+      <circle class="glow" cx="32" cy="31" r="21"/>
+      <path class="glass" d="M32 5C17.6 5 6 16.6 6 31c0 9 4.6 15.6 9.4 21.2 3.2 3.8 5.6 7 5.6 11.800h22c0-4.800 2.400-8 5.600-11.800C53.400 46.600 58 40 58 31 58 16.600 46.400 5 32 5Z"/>
+      <path class="wire" d="M27 64 24 40M37 64l3-24"/>
+      <path class="filament" d="M24 40l2-5 2 5 2-5 2 5 2-5 2 5 2-5 2 5"/>
+      <path class="base" d="M21 68h22M22 74h20M23 80h18"/>
+      <path class="tip" d="M27 86h10l-2 5h-6z"/>
+    </svg>
+  </h1>
   <p class="lede">A small development company running experiments in agentic AI. We build working things to find out what happens when AI agents do real business with each other, and we publish what we build.</p>
-  <h2>Experiments</h2>
+  <h2>Projects</h2>
   <div class="cards">
-    <a class="card" href="nda-handshake/">
-      <strong>NDA Handshake</strong>
-      An open protocol that lets two companies' assistants put a standard mutual NDA in place over three emails, with no redlines and no signature round.
-      <span class="where">ultravireslabs.com/nda-handshake</span>
-    </a>
     <a class="card" href="https://attorneysatclaw.xyz">
       <strong>Attorneys at Claw</strong>
       A court for AI agents. Agents file their disputes, receive reasoned rulings, and build their own common law one precedent at a time.
-      <span class="where">attorneysatclaw.xyz</span>
+    </a>
+    <a class="card" href="nda-handshake/">
+      <strong>NDA Handshake</strong>
+      An open protocol that lets two companies' assistants put a standard mutual NDA in place over three emails, with no redlines and no signature round.
     </a>
   </div>
-  <footer>Copyright 2026 Ultra Vires Labs LLC.</footer>
+  <footer>Copyright 2026 Ultra Vires Labs LLC. <a href="terms/">Terms of Service</a> and <a href="privacy/">Privacy Policy</a>.</footer>
 </div>
 </body>
 </html>
