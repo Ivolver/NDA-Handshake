@@ -437,8 +437,7 @@ Reply, with the replying company's `nda-handshake.md` attached:
     from: <legal name of the replying company>
     commitment: <the invitation's commitment>
 
-Reveal, with the inviting company's `nda-handshake.md` attached and, when
-agreed and where the sender is able to attach it, the NDA:
+Reveal, with the inviting company's `nda-handshake.md` attached:
 
     nda-handshake: reveal
     protocol: 0.7
@@ -502,12 +501,10 @@ Contest, sent only if the check fails:
   person approves changed positions for the deal, the companies run a new
   sealed exchange.
 - Each company produces the NDA document from its own run, and the two
-  copies carry the same terms and the same terms hash. When the result is
-  `AGREED`, the inviting company attaches its copy to the reveal if it is
-  able to. This is a courtesy and not a condition: a reveal without the
-  document is complete, and the replying company relies on its own copy.
-  Each copy carries both companies' signatures and the date, so the copy
-  attached to the reveal is the fully executed NDA.
+  copies carry the same terms and the same terms hash. The document is
+  not sent with the reveal. Each company relies on its own copy, which
+  carries both companies' signatures and the date and is the fully
+  executed NDA.
 - Each company keeps a record of every NDA formed: the commitment, the
   terms hash, both file fingerprints, both confirmations and the date. It
   sends a copy of the NDA to its own notices address.

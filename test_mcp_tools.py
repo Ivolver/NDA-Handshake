@@ -612,7 +612,8 @@ async def run() -> int:
               and revealed["send"]["in_thread"] is True
               and len(revealed["send"]["attach"]) == 1
               and revealed["send"]["attach"][0].endswith("nda-handshake.md")
-              and revealed["send"]["attach_if_possible"] == [d.get("document")]
+              and "attach_if_possible" not in revealed["send"]
+              and "produces your copy of the executed NDA" in revealed["send"]["body"]
               and os.path.isfile(d.get("document") or "")
               and d["deal_folder"].startswith(os.path.join(storage, "deals")))
         check("the person is told the terms in plain words",
@@ -620,6 +621,7 @@ async def run() -> int:
         check("the person is told the NDA is executed and nobody signs",
               d.get("executed") == today and "The NDA is executed as of" in revealed["tell_person"]
               and "Nobody needs to sign" in revealed["tell_person"]
+              and f"saved it at {d['document']}" in revealed["tell_person"]
               and "one business day" in revealed["tell_person"])
         note = revealed.get("notify") or {}
         check("the company gets a record copy at its own notices address",
@@ -823,6 +825,19 @@ async def run() -> int:
         mine3 = await hs(message_text=inv3["message_block"], approved=True)
         check("a reply says this company can run a second round",
               "second-round: yes" in mine3["send"]["body"])
+        import base64 as _b64
+        carried = mine3["send"].get("attach_content") or []
+        check("a reply carries its attachment's content, so no folder access is needed",
+              len(carried) == 1 and carried[0]["filename"] == "nda-handshake.md"
+              and _b64.b64decode(carried[0]["base64"]).decode("utf-8") == harbor_before
+              and carried[0]["sha256"] == _sealed.fingerprint(_FileText(harbor_before))
+              and carried[0]["path"] == mine3["send"]["attach"][0])
+        shown_done = done["send"].get("attach_content") or []
+        check("a reveal carries the file it reveals, and only the required attachment",
+              len(shown_done) == 1
+              and _b64.b64decode(shown_done[0]["base64"]).decode("utf-8") == harbor_deal
+              and not any(c["filename"].endswith(".docx") for c in shown_done)
+              and first["send"].get("attach_content", []) == [])
         other_home()
         rev3 = _sealed.make_reveal(mine3["send"]["body"], _FileText(harbor_before),
                                    sender="legal@harbor.example")

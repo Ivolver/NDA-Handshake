@@ -20,8 +20,7 @@ day to contest a mismatch.
 
 Each company produces the NDA document from its own run. The two copies
 carry the same terms and the same terms hash, so the exchange does not
-depend on a document travelling with the reveal. The inviting company
-attaches its copy when it can, as a courtesy.
+depend on a document travelling with the reveal, and none is sent.
 
 Each message carries a short block of labelled lines. Only those lines are
 read. Nothing else in a message is read, and nothing in a message is
@@ -554,8 +553,8 @@ def reveal_email(result, block, second_round_open=False):
                   "email. Each company approved its positions in advance, so both signatures",
                   "are already on it and nobody needs to sign by hand. If your assistant's",
                   "check does not come out the same as ours, it should tell us within one",
-                  "business day. The executed NDA is attached if our assistant was able to",
-                  "attach it, and your assistant produces an identical copy."]
+                  "business day. Your assistant produces your copy of the executed NDA from",
+                  "its own run, identical to ours, and saves it for you."]
     elif status == "CONFLICTS":
         failed = [TERM_LABELS.get(e["term"], e["term"]).replace(" (years)", "")
                   for e in (result.get("summary") or {}).get("terms", [])

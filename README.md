@@ -314,7 +314,7 @@ What this looks like to the people involved:
 |---|---|---|
 | Inviter | Says "start an NDA handshake with Jane at Acme about a possible partnership" | Seals the file and sends the invitation |
 | Replier | Answers one question: reply to this invitation? | Sends the reply with the company's file |
-| Inviter | Nothing | Runs the match, sends the reveal (with the NDA attached if it can), reports the terms. The NDA is executed when the reveal is sent |
+| Inviter | Nothing | Runs the match, sends the reveal, saves the NDA, reports the terms. The NDA is executed when the reveal is sent |
 | Replier | Nothing | Verifies the reveal within one business day, reports the terms |
 
 Only two things in an exchange ever need a person's yes: replying to an
