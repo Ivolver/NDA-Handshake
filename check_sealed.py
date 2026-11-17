@@ -340,6 +340,192 @@ with tempfile.TemporaryDirectory() as tmp:
     check("matching two files outside a sealed exchange executes nothing",
           "executed" not in run_match(FileText(harbor), FileText(lakeside), PURPOSE))
 
+    # ---- A second round: one more sealed exchange, with one-deal exceptions.
+    def second_round_case(tag, lakeside_moves, northwind_moves):
+        """Lakeside invites Northwind. They fail on two things: the
+        confidentiality period, and governing law with venue. Returns what
+        each side sees at the end of the second round."""
+        a, b = "lakeside-" + tag, "northwind-" + tag
+        as_company(tmp, a)
+        i1 = sealed.make_invitation(PURPOSE, FileText(lakeside))
+        as_company(tmp, b)
+        r1 = sealed.make_reply(i1["message_block"], FileText(northwind))
+        as_company(tmp, a)
+        v1 = sealed.make_reveal(r1["message_block"], FileText(northwind), sender=NORTHWIND)
+        as_company(tmp, b)
+        c1 = sealed.check_reveal(v1["message_block"], FileText(lakeside), sender=LAKESIDE)
+        out = {"i1": i1, "r1": r1, "v1": v1, "c1": c1}
+
+        def deal(own, moves, who):
+            record = sealed.find_second_round()
+            if not moves:
+                return record, own
+            terms = sealed.exception_terms(record, "accept_theirs", moves)
+            return record, make_file.with_exception(own, record["commitment"], who, terms)
+
+        as_company(tmp, a)
+        record, lakeside2 = deal(lakeside, lakeside_moves, "Robin Sample, Managing Member")
+        i2 = sealed.run_second_round(record, lakeside2)
+        as_company(tmp, b)
+        out["view"] = sealed.note_second_invitation(email(i2["message_block"]))
+        record, northwind2 = deal(northwind, northwind_moves, "Sam Sample, General Counsel")
+        r2 = sealed.run_second_round(record, northwind2)
+        as_company(tmp, a)
+        v2 = sealed.make_reveal(email(r2["message_block"]), FileText(northwind2),
+                                sender=NORTHWIND)
+        as_company(tmp, b)
+        c2 = sealed.check_reveal(v2["message_block"], FileText(lakeside2), sender=LAKESIDE)
+        out.update(i2=i2, r2=r2, v2=v2, c2=c2, lakeside2=lakeside2, northwind2=northwind2)
+        return out
+
+    won = second_round_case("won", ["governing_law"], ["confidentiality_years"])
+    check("a reply says its sender can run a second round",
+          "second-round: yes" in won["r1"]["message_block"])
+    check("a close conflict opens a second round on both sides",
+          "second-round: open" in won["v1"]["message_block"]
+          and [t["term"] for t in won["v1"]["second_round"]["terms"]]
+          == ["confidentiality_years", "governing_law", "venue"]
+          and won["c1"]["second_round"]["role"] == "replier"
+          and won["v1"]["second_round"]["role"] == "inviter")
+    law = next(t for t in won["view"]["terms"] if t["term"] == "governing_law")
+    years = next(t for t in won["view"]["terms"] if t["term"] == "confidentiality_years")
+    check("each side sees the gap from its own side, and what moving would mean",
+          law["your_position"] == "California only"
+          and law["accept_theirs"] == {"prefer": "California",
+                                       "accept": ["California", "New York", "Delaware"]}
+          and years["accept_theirs"] == {"prefer": 7, "min": 5, "max": 10}
+          and years["neutral"] is None and law["neutral"] is None,
+          str(won["view"]["terms"]))
+    check("the second invitation is sealed and names the first round",
+          f"prior: {won['i1']['commitment']}" in won["i2"]["message_block"]
+          and fingerprint(FileText(won["lakeside2"])) not in won["i2"]["message_block"]
+          and won["i2"]["used_exception"])
+    check("an exception leaves the standing positions and confirmation untouched",
+          check_file(FileText(won["lakeside2"]))["confirmation"]["ready"]
+          and run_match(FileText(won["lakeside2"]), FileText(northwind), PURPOSE)["status"]
+          == "CONFLICTS")
+    check("exceptions on both sides produce an executed NDA in the second round",
+          won["v2"]["status"] == "AGREED" and won["v2"]["executed"] == TODAY
+          and won["v2"]["round"] == 2 and won["v2"]["second_round"] is None
+          and won["v2"]["result"]["terms"]["governing_law"] == "California"
+          and won["v2"]["result"]["terms"]["venue"] == "California"
+          and won["v2"]["result"]["terms"]["confidentiality_years"] == 5)
+    check("the replier's own run of the second round agrees",
+          won["c2"]["verified"] and won["c2"]["executed"] == TODAY
+          and won["c2"]["result"]["terms_hash"] == won["v2"]["result"]["terms_hash"])
+    check("the signature shows who approved each exception",
+          won["v2"]["signing"]["Lakeside Example LLC"]["exception_by"]
+          == "Robin Sample, Managing Member"
+          and won["v2"]["signing"]["Northwind Example Inc."]["exception_by"]
+          == "Sam Sample, General Counsel"
+          and won["v2"]["signing"]["Lakeside Example LLC"]["confirmed_by"]
+          == "Robin Sample, Managing Member",
+          str(won["v2"]["signing"]))
+    terms1 = {e["term"]: e["result"] for e in won["v1"]["result"]["summary"]["terms"]}
+    terms2 = {e["term"]: e["result"] for e in won["v2"]["result"]["summary"]["terms"]}
+    check("every term that matched in the first round is unchanged in the second",
+          all(terms2[name] == value for name, value in terms1.items() if value is not None))
+
+    as_company(tmp, "lakeside-won")
+    listed = sealed.list_exchanges()
+    check("both rounds are listed as finished exchanges",
+          len(listed) == 2 and all(e["state"].startswith("finished") for e in listed),
+          str(listed))
+    held = second_round_case("held", ["governing_law"], [])
+    check("if one side holds on a term nobody moved on, the second round fails and is final",
+          held["v2"]["status"] == "CONFLICTS" and held["v2"]["executed"] is None
+          and "second-round" not in held["v2"]["message_block"]
+          and held["c2"]["verified"] and held["c2"]["second_round"] is None)
+    as_company(tmp, "lakeside-held")
+    check("there is no third round", refused(sealed.find_second_round))
+
+    # One side moving all the way is enough when only one thing failed.
+    lawonly = make_file.with_confirmation(
+        make_file.without_confirmation(northwind).replace(
+            "{prefer: 7, min: 6, max: 10}", "{prefer: 5, min: 3, max: 10}"),
+        "Sam Sample, General Counsel", "northwind.example")
+    check("the test file fails against Lakeside on law and venue only",
+          sealed.second_round_terms(run_match(FileText(lakeside), FileText(lawonly), PURPOSE))
+          == ["governing_law", "venue"])
+    as_company(tmp, "lakeside-one")
+    i1 = sealed.make_invitation(PURPOSE, FileText(lakeside))
+    as_company(tmp, "northwind-one")
+    r1 = sealed.make_reply(i1["message_block"], FileText(lawonly))
+    as_company(tmp, "lakeside-one")
+    v1 = sealed.make_reveal(r1["message_block"], FileText(lawonly), sender=NORTHWIND)
+    record = sealed.find_second_round()
+    check("an exception cannot narrow a position or reach a term that is not open",
+          refused(make_file.with_exception, lakeside, record["commitment"], "R, M",
+                  {"governing_law": {"prefer": "New York", "accept": ["New York"]}})
+          and refused(sealed.exception_terms, record, "neutral")
+          and refused(sealed.exception_terms, record, "accept_theirs", ["residuals"]))
+    i2 = sealed.run_second_round(record, lakeside)           # Lakeside holds
+    as_company(tmp, "northwind-one")
+    sealed.check_reveal(v1["message_block"], FileText(lakeside), sender=LAKESIDE)
+    sealed.note_second_invitation(i2["message_block"])
+    record = sealed.find_second_round()
+    wider = sealed.exception_terms(record, "accept_theirs")
+    lawonly2 = make_file.with_exception(lawonly, record["commitment"],
+                                        "Sam Sample, General Counsel", wider)
+    r2 = sealed.run_second_round(record, lawonly2)
+    check("a second-round reply carries the file with its exception",
+          open(r2["attach"][0], encoding="utf-8").read() == lawonly2
+          and "exception:" in lawonly2 and r2["used_exception"])
+    as_company(tmp, "lakeside-one")
+    changed = lawonly2.replace("residuals: require", "residuals: accept")
+    check("the changed file used for the next check really is different",
+          changed != lawonly2)
+    stopped2 = None
+    try:
+        sealed.make_reveal(r2["message_block"], FileText(changed), sender=NORTHWIND)
+    except sealed.IdentityStop as e:
+        stopped2 = str(e)
+    check("a second-round file that changes anything but the exception is refused",
+          stopped2 is not None and "exception" in stopped2)
+    stale = lawonly2.replace(record["commitment"], "0" * 64)
+    check("an exception given for another handshake is ignored",
+          run_match(FileText(lakeside), FileText(stale), PURPOSE,
+                    second_round={"prior": record["commitment"],
+                                  "terms": ["governing_law", "venue"]})["status"] == "CONFLICTS")
+    v2 = sealed.make_reveal(r2["message_block"], FileText(lawonly2), sender=NORTHWIND)
+    check("one side holding and the other moving is enough",
+          v2["status"] == "AGREED" and v2["result"]["terms"]["governing_law"] == "New York"
+          and "exception_by" not in v2["signing"]["Lakeside Example LLC"]
+          and v2["signing"]["Northwind Example Inc."]["exception_by"]
+          == "Sam Sample, General Counsel")
+    as_company(tmp, "northwind-one")
+    tampered = lakeside.replace("200 Example Avenue", "201 Example Avenue")
+    check("the replier contests a second-round file that is not the first-round file",
+          sealed.check_reveal(v2["message_block"], FileText(tampered),
+                              sender=LAKESIDE)["ground"] in ("commitment-mismatch",
+                                                             "file-altered"))
+    check("and the true second-round reveal verifies",
+          sealed.check_reveal(v2["message_block"], FileText(lakeside),
+                              sender=LAKESIDE)["executed"] == TODAY)
+
+    # No second round where it is not eligible or not wanted.
+    check("a conflict on three things opens no second round",
+          "second-round" not in rev2["message_block"] and rev2["second_round"] is None)
+    as_company(tmp, "lakeside-old")
+    i1 = sealed.make_invitation(PURPOSE, FileText(lakeside))
+    as_company(tmp, "northwind-old")
+    r1 = sealed.make_reply(i1["message_block"], FileText(lawonly))
+    as_company(tmp, "lakeside-old")
+    old_reply = r1["message_block"].replace("second-round: yes\n", "")
+    v1 = sealed.make_reveal(old_reply, FileText(lawonly), sender=NORTHWIND)
+    check("a reply from software without second rounds opens none",
+          old_reply != r1["message_block"] and v1["status"] == "CONFLICTS"
+          and "second-round" not in v1["message_block"])
+    off = make_file.with_confirmation(
+        make_file.without_confirmation(lawonly).replace(
+            "  affiliate_sharing: accept", "  affiliate_sharing: accept\n  second_round: false"),
+        "Sam Sample, General Counsel", "northwind.example")
+    as_company(tmp, "northwind-off")
+    check("a company can switch second rounds off in its file",
+          "second_round: false" in off
+          and "second-round" not in sealed.make_reply(sealed.make_invitation(
+              PURPOSE, FileText(lakeside))["message_block"], FileText(off))["message_block"])
+
 if failures:
     print(f"{len(failures)} check(s) failed.")
     sys.exit(1)

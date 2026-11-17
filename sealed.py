@@ -40,7 +40,9 @@ import re
 import secrets
 
 from match import (EMAIL, FileText, MatcherError, PROTOCOL_VERSIONS, check_file,
-                   fingerprint, load, pick_entity, run_match)
+                   effective_positions, exception_options, fingerprint, load,
+                   open_term_groups, pick_entity, run_match)
+from match import _read as _read_source
 
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 STATUSES = ["AGREED", "AGREED_PENDING_INFO", "CONFLICTS", "OUT_OF_PROTOCOL",
@@ -51,14 +53,17 @@ MAX_TEXT = 200
 
 # kind -> (required lines, optional lines), in the order they are written.
 BLOCKS = {
-    "invitation": (["protocol", "from", "purpose", "commitment"], []),
-    "reply": (["protocol", "from", "commitment"], []),
+    "invitation": (["protocol", "from", "purpose", "commitment"], ["prior"]),
+    "reply": (["protocol", "from", "commitment"], ["second-round"]),
     "reveal": (["protocol", "commitment", "secret", "status"],
-               ["terms-hash", "inviter", "replier", "executed"]),
+               ["terms-hash", "inviter", "replier", "executed", "second-round"]),
     "contest": (["protocol", "commitment", "ground"], ["my-hash"]),
 }
-HEX_LINES = {"commitment", "secret", "terms-hash", "inviter", "replier", "my-hash"}
-ENUM_LINES = {"status": STATUSES, "ground": GROUNDS}
+HEX_LINES = {"commitment", "secret", "terms-hash", "inviter", "replier", "my-hash", "prior"}
+ENUM_LINES = {"status": STATUSES, "ground": GROUNDS, "second-round": ["yes", "open"]}
+# A second round stays open for this many days after the first round's result.
+SECOND_ROUND_DAYS = 7
+MAX_OPEN_GROUPS = 2
 DATE_LINES = {"executed"}
 
 
@@ -510,6 +515,22 @@ def invitation_email(own_name, purpose, block):
     ], block)
 
 
+def second_invitation_email(own_name, block):
+    return (f"\U0001F91D NDA Handshake, second round: {own_name}",
+            _email([
+                "Our first handshake came close but did not meet on every term, so this",
+                "opens the second and final round.",
+                "",
+                "It works the same way. Our second-round positions are sealed in the code",
+                "below. Your assistant replies with yours, changed or not, and we then",
+                "open ours. A person at each company decides, privately, whether to allow",
+                "an exception for this one NDA. Neither side sees the other's decision",
+                "first. If the positions now meet, the NDA is in place right then.",
+                "",
+                "Please ask your assistant to handle this email.",
+            ], block))
+
+
 def reply_email(own_name, block):
     return _email([
         f"Happy to shake on it. {own_name}'s NDA positions are attached.",
@@ -520,7 +541,7 @@ def reply_email(own_name, block):
     ], block)
 
 
-def reveal_email(result, block):
+def reveal_email(result, block, second_round_open=False):
     status = result.get("status")
     if status == "AGREED":
         lines = ["We have a handshake. Here is what our two sets of positions produced:", ""]
@@ -543,8 +564,16 @@ def reveal_email(result, block):
         lines += [f"  {label}" for label in failed]
         lines += ["",
                   "Our positions are attached, as promised, so your side can see the same",
-                  "result. If someone on your team would like to talk it through, just reply.",
-                  "Humans are still allowed to negotiate."]
+                  "result."]
+        if second_round_open:
+            lines += ["",
+                      "A second round is open for one week. In it, a person at each company",
+                      "can approve an exception on these terms for this NDA only, and both",
+                      "sides commit again under seal. Your assistant can explain your",
+                      "options. If we go ahead, you will get one more email from us."]
+        else:
+            lines += ["If someone on your team would like to talk it through, just reply.",
+                      "Humans are still allowed to negotiate."]
     else:
         why = {"AGREED_PENDING_INFO":
                "Our positions line up, but something needed for the NDA is missing: a\n"
@@ -619,9 +648,16 @@ def sender_problem(confirmation, sender):
 
 def signing(result, executed):
     """For the NDA document: each company's electronic execution details."""
-    return {c["party"]: {"date": executed, "confirmed_by": c["confirmed_by"],
-                         "confirmation_date": c["date"]}
-            for c in result.get("confirmations") or [] if c.get("confirmed")}
+    out = {}
+    for c in result.get("confirmations") or []:
+        if not c.get("confirmed"):
+            continue
+        out[c["party"]] = {"date": executed, "confirmed_by": c["confirmed_by"],
+                           "confirmation_date": c["date"]}
+        if c.get("exception"):
+            out[c["party"]].update(exception_by=c["exception"]["approved_by"],
+                                   exception_date=c["exception"]["date"])
+    return out
 
 
 def _save_handshake_record(record, result):
@@ -644,6 +680,234 @@ def _save_handshake_record(record, result):
                       else f"executed on {record.get('executed')}")}
     return _write(os.path.join(folder, "handshake-record.json"),
                   json.dumps(data, indent=2) + "\n")
+
+
+# ------------------------------------------------------------ the second round
+#
+# When a first round ends in CONFLICTS on one or two terms, and both sides'
+# software says it can, one second round is open for a week. Each company's
+# person may approve a one-deal exception: a wider position on a failed
+# term, for this NDA only. The assistants never bargain. Each asks only its
+# own person, both sides commit again under seal, and the same rule decides.
+
+def second_round_allowed(own_text):
+    """False if the company's file switches second rounds off."""
+    nda = load(FileText(own_text)).get("nda")
+    return not (isinstance(nda, dict) and nda.get("second_round") is False)
+
+
+def second_round_terms(result):
+    """The terms a second round would be open for, or [] if it is not eligible."""
+    if result.get("status") != "CONFLICTS":
+        return []
+    names = [e["term"] for e in (result.get("summary") or {}).get("terms", [])
+             if e.get("outcome") == "CONFLICT"]
+    if not names or "form" in names or open_term_groups(names) > MAX_OPEN_GROUPS:
+        return []
+    return names
+
+
+def _source_text(source):
+    return _read_source(source)[0].decode("utf-8")
+
+
+def _opened(result, their_source):
+    until = datetime.date.today() + datetime.timedelta(days=SECOND_ROUND_DAYS)
+    return {"state": "open", "terms": second_round_terms(result),
+            "their_file": _source_text(their_source), "until": until.isoformat()}
+
+
+def _second(record):
+    """For a second-round record: what run_match needs. None in a first round."""
+    if not record.get("prior"):
+        return None
+    return {"prior": record["prior"], "terms": record["open_terms"]}
+
+
+def _same_but_exception(their_source, round_one_text):
+    """True if a second-round file is the first-round file plus, at most, an exception."""
+    now, before = load(their_source), load(FileText(round_one_text))
+    now.pop("exception", None)
+    return now == before and "exception" not in before
+
+
+def _describe(name, position):
+    scrap = []
+    from match import LIST_TERMS, RANGES, describe_choice, describe_range, ranked, read_range
+    allowed = dict(LIST_TERMS).get(name)
+    if allowed is not None:
+        return describe_choice(ranked(position, allowed, name, "", scrap))
+    if name in RANGES:
+        return describe_range(read_range(position, RANGES[name], name, "", scrap))
+    return (str(position or "accept")).capitalize()
+
+
+def second_round_view(record):
+    """What a company's person needs to decide on a second round.
+
+    For each open term: this company's position, the other company's, and
+    the wider positions this company could take for this one NDA.
+    """
+    info = record.get("second_round") or {}
+    mine = effective_positions(load(FileText(record["own_file"])))
+    theirs = effective_positions(load(FileText(info["their_file"])))
+    terms = []
+    for name in info.get("terms", []):
+        options = exception_options(name, mine.get(name), theirs.get(name))
+        terms.append({
+            "term": name, "label": TERM_LABELS.get(name, name).replace(" (years)", ""),
+            "your_position": _describe(name, mine.get(name)),
+            "their_position": _describe(name, theirs.get(name)),
+            "accept_theirs": options["accept_theirs"],
+            "accept_theirs_means": options["accept_theirs"] is not None
+            and _describe(name, options["accept_theirs"]),
+            "neutral": options["neutral"], "neutral_value": options["neutral_value"],
+            "neutral_means": options["neutral"] is not None
+            and _describe(name, options["neutral"])})
+    other = (record.get("replied_by") if record["role"] == "inviter"
+             else record.get("invited_by")) or record.get("counterparty") or "the other company"
+    return {"commitment": record["commitment"], "role": record["role"],
+            "counterparty": other, "purpose": record["purpose"],
+            "state": info.get("state"), "until": info.get("until"), "terms": terms,
+            "invitation_received": bool(info.get("invitation"))}
+
+
+def open_second_rounds():
+    """Every first-round record on this machine with a second round still open."""
+    out, folder = [], os.path.join(home(), "exchanges")
+    try:
+        names = sorted(os.listdir(folder))
+    except OSError:
+        return out
+    today = datetime.date.today().isoformat()
+    for name in names:
+        try:
+            with open(os.path.join(folder, name), encoding="utf-8") as f:
+                record = json.load(f)
+        except (OSError, ValueError):
+            continue
+        info = record.get("second_round") if isinstance(record, dict) else None
+        if info and info.get("state") == "open" and (info.get("until") or "") >= today:
+            out.append(record)
+    return out
+
+
+def find_second_round(commitment=None):
+    """The one open second round meant, by the start of its commitment if given."""
+    found = [r for r in open_second_rounds()
+             if not commitment or r["commitment"].startswith(commitment.lower())]
+    try:
+        me = own_company()["name"]
+    except (MatcherError, OSError):
+        me = None
+    if me:
+        # One computer can hold more than one company's records.
+        found = [r for r in found if _legal_name(r["own_file"]) == me]
+    if not found:
+        raise MatcherError("No second round is open here. One opens only when a first "
+                           "round ended without agreement on one or two terms, both "
+                           "companies allow it, and less than a week has passed.")
+    if len(found) > 1:
+        raise MatcherError("More than one second round is open. Say which by giving the "
+                           "commitment: " + ", ".join(r["commitment"][:8] for r in found))
+    return found[0]
+
+
+def exception_terms(record, choice, only=None):
+    """The wider positions a choice means on each open term.
+
+    choice is "accept_theirs" or "neutral". only limits it to some of the
+    open terms; governing law and venue always move together.
+    """
+    view = second_round_view(record)
+    wanted = set(only or [t["term"] for t in view["terms"]])
+    if wanted & {"governing_law", "venue"}:
+        wanted |= {"governing_law", "venue"}
+    out = {}
+    for t in view["terms"]:
+        if t["term"] not in wanted:
+            continue
+        position = t[choice]
+        if position is None:
+            raise MatcherError(
+                f"There is no {'neutral option' if choice == 'neutral' else 'wider position'} "
+                f"for {t['label']}. Choose again for that term.")
+        out[t["term"]] = position
+    if not out:
+        raise MatcherError("That choice covers none of the open terms.")
+    return out
+
+
+def decline_second_round(record):
+    record["second_round"]["state"] = "declined"
+    _save_record(record["role"], record["commitment"], record)
+
+
+def note_second_invitation(invitation_text):
+    """Replying company: a second-round invitation has arrived. Keep it and
+    return what the person needs to decide."""
+    inv = parse_block(invitation_text, "invitation")
+    if not inv.get("prior"):
+        raise MatcherError("This invitation does not open a second round.")
+    try:
+        record = _load_record("replier", inv["prior"])
+    except MatcherError:
+        raise MatcherError("This invitation opens a second round of a handshake this "
+                           "computer has no record of, so it cannot be answered here.")
+    info = record.get("second_round") or {}
+    if info.get("state") != "open":
+        raise MatcherError("No second round is open for that handshake"
+                           + (": it was already answered." if info.get("state") == "replied"
+                              else "."))
+    if (info.get("until") or "") < datetime.date.today().isoformat():
+        raise MatcherError("The second round for that handshake has closed.")
+    info["invitation"] = format_block("invitation", inv)
+    _save_record("replier", record["commitment"], record)
+    return second_round_view(record)
+
+
+def run_second_round(record, deal_text):
+    """Send this company's second-round file under seal (inviter) or in reply
+    (replier). deal_text is its first-round file, with an exception added if
+    a person approved one."""
+    info, role = record["second_round"], record["role"]
+    if deal_text != record["own_file"] and not _same_but_exception(
+            FileText(deal_text), record["own_file"]):
+        raise MatcherError("A second-round file may differ from the first only by an exception.")
+    text, _ = _own_text(FileText(deal_text))
+    fp, name = fingerprint(FileText(text)), _legal_name(text)
+    shared = {"own_fingerprint": fp, "own_file": text, "purpose": record["purpose"],
+              "base": record.get("base"), "created": datetime.date.today().isoformat(),
+              "prior": record["commitment"], "open_terms": info["terms"],
+              "their_round_one_file": info["their_file"]}
+    if role == "inviter":
+        secret = secrets.token_hex(32)
+        commitment = commitment_for(secret, fp)
+        _save_record("inviter", commitment, dict(
+            shared, role="inviter", commitment=commitment, secret=secret,
+            counterparty=record.get("replied_by") or record.get("counterparty")))
+        block = format_block("invitation", {
+            "protocol": _protocol(), "from": name, "purpose": record["purpose"],
+            "commitment": commitment, "prior": record["commitment"]})
+        info.update(state="invited", commitment=commitment)
+        out = {"kind": "invitation", "message_block": block, "attach_text": None,
+               "attach": []}
+    else:
+        if not info.get("invitation"):
+            raise MatcherError("Their second-round email has not arrived yet. When it "
+                               "does, pass it to handshake and I will pick this up.")
+        inv = parse_block(info["invitation"], "invitation")
+        _save_record("replier", inv["commitment"], dict(
+            shared, role="replier", commitment=inv["commitment"], invited_by=inv["from"]))
+        block = format_block("reply", {"protocol": _protocol(), "from": name,
+                                       "commitment": inv["commitment"]})
+        info.update(state="replied", commitment=inv["commitment"])
+        folder = _deal_folder(None, inv["from"], inv["commitment"], record.get("base"))
+        out = {"kind": "reply", "message_block": block, "attach_text": text,
+               "attach": [_write(os.path.join(folder, "nda-handshake.md"), text)]}
+    _save_record(role, record["commitment"], record)
+    return dict(out, own_name=name, counterparty=second_round_view(record)["counterparty"],
+                purpose=record["purpose"], used_exception=deal_text != record["own_file"])
 
 
 # ------------------------------------------------------------ the three steps
@@ -758,6 +1022,9 @@ def make_reply(invitation_text, own_source=None):
     produces from the two files.
     """
     inv = parse_block(invitation_text, "invitation")
+    if inv.get("prior"):
+        raise MatcherError("This invitation opens a second round. Use the second_round "
+                           "tool to answer it.")
     text, path = _own_text(own_source)
     fp = fingerprint(FileText(text))
     name = _legal_name(text)
@@ -766,8 +1033,9 @@ def make_reply(invitation_text, own_source=None):
         "own_fingerprint": fp, "own_file": text, "purpose": inv["purpose"],
         "invited_by": inv["from"], "base": os.path.dirname(path) if path else None,
         "created": datetime.date.today().isoformat()})
-    block = format_block("reply", {"protocol": _protocol(), "from": name,
-                                   "commitment": inv["commitment"]})
+    block = format_block("reply", {
+        "protocol": _protocol(), "from": name, "commitment": inv["commitment"],
+        "second-round": "yes" if second_round_allowed(text) else None})
     return {"invited_by": inv["from"], "purpose": inv["purpose"],
             "commitment": inv["commitment"], "message_block": block,
             "own_file_text": text, "own_file_path": path, "own_fingerprint": fp,
@@ -788,7 +1056,13 @@ def make_reveal(reply_text, their_source, out_dir=None, sender=None):
     reply = parse_block(reply_text, "reply")
     record = _load_record("inviter", reply["commitment"])
     own = FileText(record["own_file"])
-    result = run_match(own, their_source, record["purpose"])
+    second = _second(record)
+    if second and not _same_but_exception(their_source, record["their_round_one_file"]):
+        raise IdentityStop(
+            "Nothing was revealed and no NDA was made, because the file they sent for "
+            "the second round is not their first-round file with, at most, an "
+            "exception added. In a second round nothing else may change.")
+    result = run_match(own, their_source, record["purpose"], second_round=second)
     their_fp = fingerprint(their_source)
     status = result["status"]
     if record.get("revealed") and record.get("replier_fingerprint") != their_fp:
@@ -816,6 +1090,10 @@ def make_reveal(reply_text, their_source, out_dir=None, sender=None):
             fields.update({"terms-hash": result["terms_hash"],
                            "inviter": record["own_fingerprint"], "replier": their_fp,
                            "executed": datetime.date.today().isoformat()})
+        elif (not second and reply.get("second-round") == "yes"
+              and second_round_allowed(record["own_file"]) and second_round_terms(result)):
+            fields["second-round"] = "open"
+            record["second_round"] = _opened(result, their_source)
     executed = fields.get("executed")
     own_name = _legal_name(record["own_file"])
     folder = record.get("deal_folder") if repeat else None
@@ -834,6 +1112,9 @@ def make_reveal(reply_text, their_source, out_dir=None, sender=None):
             "replied_by": reply["from"], "own_name": own_name,
             "executed": executed, "newly_executed": bool(executed and not repeat),
             "signing": signing(result, executed) if executed else {},
+            "round": 2 if second else 1,
+            "second_round": (second_round_view(record)
+                             if fields.get("second-round") == "open" else None),
             "report": None if status == "AGREED" else conflict_report(result, own_name)}
 
 
@@ -853,7 +1134,8 @@ def check_reveal(reveal_text, their_source, out_dir=None, sender=None):
     record = _load_record("replier", rev["commitment"])
     own = FileText(record["own_file"])
     their_fp = fingerprint(their_source)
-    result = run_match(their_source, own, record["purpose"])
+    second = _second(record)
+    result = run_match(their_source, own, record["purpose"], second_round=second)
     status = result["status"]
 
     checks = {
@@ -864,6 +1146,10 @@ def check_reveal(reveal_text, their_source, out_dir=None, sender=None):
     ground = None
     if not checks["their_file_matches_commitment"]:
         ground = "commitment-mismatch"
+    elif second and not _same_but_exception(their_source, record["their_round_one_file"]):
+        # In a second round a file may differ from the first round's only by an exception.
+        checks["their_file_changed_only_by_an_exception"] = False
+        ground = "file-altered"
     elif rev["status"] == "AGREED":
         for key in ("terms-hash", "inviter", "replier", "executed"):
             if key not in rev:
@@ -917,6 +1203,11 @@ def check_reveal(reveal_text, their_source, out_dir=None, sender=None):
     record.update(checked=True, ground=ground, status=status, deal_folder=folder,
                   inviter_fingerprint=their_fp, executed=executed,
                   terms_hash=result.get("terms_hash"))
+    opened = (ground is None and not second and rev.get("second-round") == "open"
+              and status == "CONFLICTS" and second_round_allowed(record["own_file"])
+              and second_round_terms(result))
+    if opened and not (record.get("second_round") or {}).get("state") in ("replied", "declined"):
+        record["second_round"] = _opened(result, their_source)
     _save_record("replier", record["commitment"], record)
     if executed or (ground and rev["status"] == "AGREED"):
         _save_handshake_record(record, result)
@@ -925,6 +1216,8 @@ def check_reveal(reveal_text, their_source, out_dir=None, sender=None):
             "deal_folder": folder, "result": result, "own_name": own_name,
             "executed": executed, "newly_executed": newly,
             "signing": signing(result, executed) if executed else {},
+            "round": 2 if second else 1,
+            "second_round": second_round_view(record) if opened else None,
             "report": conflict_report(result, own_name)
             if ground is None and status != "AGREED" else None}
 

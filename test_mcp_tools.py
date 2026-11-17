@@ -18,6 +18,8 @@ import tempfile
 
 from mcp import Client, StdioServerParameters
 
+import make_file
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 EXAMPLES = os.path.join(HERE, "examples")
 PURPOSE = "Evaluating a potential business relationship"
@@ -108,9 +110,9 @@ async def run() -> int:
                   if ln.strip() and not ln.startswith("#")} - {"jsonschema"}
         check("pyproject.toml and requirements.txt list the same packages",
               all(f'"{name}>=' in pyproject for name in wanted) and len(wanted) == 3)
-        check("list_tools returns the nine tools",
+        check("list_tools returns the ten tools",
               tool_names == ["check_file", "confirm", "draft_file", "draft_nda", "fingerprint",
-                             "handshake", "make_document", "match", "setup"],
+                             "handshake", "make_document", "match", "second_round", "setup"],
               f"got {tool_names}")
 
         harbor_md = os.path.join(EXAMPLES, "harbor-fictional", "nda-handshake.md")
@@ -727,6 +729,135 @@ async def run() -> int:
         check("status lists every exchange and its state",
               len(finished) == 3 and all(e["state"].startswith("finished")
                                          for e in finished))
+        # ---- The second round, through the tools. The server is Harbor; the
+        # other company runs the steps directly from its own records folder.
+        async def sr(**kw):
+            return await client.call_tool("second_round", kw)
+
+        def other_home():
+            os.environ["NDA_HANDSHAKE_HOME"] = os.path.join(test_home, "home3")
+            if not _sealed.storage_folder():
+                _sealed.save_settings(os.path.join(test_home, "storage3"))
+
+        calif = make_file.with_confirmation(
+            make_file.without_confirmation(lakeside_text).replace(
+                "prefer: New York\n    accept: [New York, Delaware]",
+                "prefer: California\n    accept: [California]"),
+            "Robin Sample, Managing Member", "lakeside.example")
+        harbor_before = own_text()
+        nothing = await sr()
+        check("second_round says so when none is open", bool(getattr(nothing, "is_error", False)))
+        first = await hs(purpose=PURPOSE, counterparty="jane@lakeside.example")
+        other_home()
+        rep1 = _sealed.make_reply(first["send"]["body"], _FileText(calif))
+        close = await hs(message_text=rep1["message_block"], attachment_content=calif,
+                         sender="legal@lakeside.example")
+        check("a close conflict reveals, opens a second round and asks the person",
+              close.get("step") == "reveal_ready" and close.get("ask_person")
+              and "second-round: open" in close["send"]["body"]
+              and "A second round is open for one week" in close["send"]["body"]
+              and [t["term"] for t in close["details"]["second_round"]["terms"]]
+              == ["governing_law", "venue"]
+              and "Accept theirs for this NDA" in close["tell_person"])
+        other_home()
+        _sealed.check_reveal(close["send"]["body"], _FileText(harbor_before),
+                             sender="legal@harbor.example")
+        seen = _structured(await sr())
+        check("second_round shows the open round and both positions",
+              seen.get("step") == "second_round_open" and seen.get("send") is None
+              and "California only" in seen["tell_person"])
+        check("a neutral option is refused where the rules name none",
+              bool(getattr(await sr(choice="neutral"), "is_error", False)))
+        check("an exception cannot be recorded before its text is shown",
+              bool(getattr(await sr(choice="accept_theirs", typed_name="Alex Sample",
+                                    title="Chief Executive Officer"), "is_error", False)))
+        shown_ex = _structured(await sr(choice="accept_theirs"))
+        check("choosing to move shows the whole exception text and exactly what it covers",
+              shown_ex.get("step") == "exception_shown" and shown_ex.get("send") is None
+              and "NDA Handshake One-Deal Exception" in shown_ex["tell_person"]
+              and "One agreement only" in shown_ex["tell_person"]
+              and "also accepts New York, Florida, California" in shown_ex["tell_person"]
+              and sorted(shown_ex["details"]["covers"]) == ["governing_law", "venue"])
+        check("the exception needs a name and a title",
+              bool(getattr(await sr(choice="accept_theirs", typed_name="Alex Sample"),
+                           "is_error", False)))
+        moved = _structured(await sr(choice="accept_theirs", typed_name="Alex Sample",
+                                     title="Chief Executive Officer"))
+        check("with the typed name, the sealed second invitation is ready to send",
+              moved.get("step") == "second_invitation_ready"
+              and moved.get("ask_person") is None
+              and "nda-handshake: invitation" in moved["send"]["body"]
+              and "prior: " in moved["send"]["body"]
+              and "second and final round" in moved["send"]["body"]
+              and moved["send"]["in_thread"] is True and moved["send"]["attach"] == []
+              and "California" not in moved["send"]["body"])
+        check("an exception changes nothing in the company's own file",
+              own_text() == harbor_before and "exception:" not in own_text())
+        other_home()
+        _sealed.note_second_invitation(moved["send"]["body"])
+        rep2 = _sealed.run_second_round(_sealed.find_second_round(), calif)
+        done = await hs(message_text=rep2["message_block"], attachment_content=calif,
+                        sender="legal@lakeside.example")
+        doc2 = done["details"].get("document") or ""
+        cells2 = "\n".join(c.text for tb in _docx.Document(doc2).tables
+                           for r in tb.rows for c in r.cells) if doc2 else ""
+        check("the second round ends in an executed NDA on the excepted term",
+              done.get("step") == "reveal_ready" and done["details"]["status"] == "AGREED"
+              and done["details"]["executed"] and done.get("ask_person") is None
+              and "Governing law: California" in done["tell_person"])
+        check("the document shows the exception beside the standing confirmation",
+              "Applied under its NDA Handshake Confirmation and a One-Deal Exception" in cells2
+              and "Exception approved by:  Alex Sample, Chief Executive Officer" in cells2
+              and cells2.count("One-Deal Exception approved by") == 1)
+        other_home()
+        harbor_deal = open(done["send"]["attach"][0], encoding="utf-8").read()
+        check("the other company's own run of the second round agrees",
+              "exception:" in harbor_deal
+              and _sealed.check_reveal(done["send"]["body"], _FileText(harbor_deal),
+                                       sender="legal@harbor.example")["executed"])
+
+        # The other way round: the server's company is invited, and holds.
+        other_home()
+        inv3 = _sealed.make_invitation(PURPOSE, _FileText(calif))
+        await hs(message_text=inv3["message_block"])
+        mine3 = await hs(message_text=inv3["message_block"], approved=True)
+        check("a reply says this company can run a second round",
+              "second-round: yes" in mine3["send"]["body"])
+        other_home()
+        rev3 = _sealed.make_reveal(mine3["send"]["body"], _FileText(harbor_before),
+                                   sender="legal@harbor.example")
+        told = await hs(message_text=rev3["message_block"], attachment_content=calif,
+                        sender="legal@lakeside.example")
+        check("the invited company is told a second round is open and what its options are",
+              told.get("step") == "checked" and told.get("send") is None
+              and "they have opened one second round" in told["tell_person"]
+              and "Accept theirs for this NDA" in told["tell_person"])
+        early = _structured(await sr())
+        check("the invited company waits for the other side to start the second round",
+              early.get("step") == "second_round_waiting"
+              and bool(getattr(await sr(choice="hold"), "is_error", False)))
+        other_home()
+        inv4 = _sealed.run_second_round(_sealed.find_second_round(), calif)
+        asked4 = await hs(message_text=inv4["message_block"])
+        check("a second-round invitation asks the person to choose and sends nothing",
+              asked4.get("step") == "second_round_choice" and asked4.get("send") is None
+              and asked4.get("ask_person")
+              and "cannot see whether they moved" in asked4["tell_person"])
+        hold4 = _structured(await sr(choice="hold"))
+        check("holding replies with the unchanged file",
+              hold4.get("step") == "second_reply_ready"
+              and "nda-handshake: reply" in hold4["send"]["body"]
+              and open(hold4["send"]["attach"][0], encoding="utf-8").read() == harbor_before
+              and hold4["details"]["used_exception"] is False)
+        other_home()
+        rev4 = _sealed.make_reveal(hold4["send"]["body"], _FileText(harbor_before),
+                                   sender="legal@harbor.example")
+        last = await hs(message_text=rev4["message_block"], attachment_content=calif,
+                        sender="legal@lakeside.example")
+        check("when both sides hold, the second round fails and is final",
+              rev4["status"] == "CONFLICTS" and last.get("step") == "checked"
+              and "second and final round" in last["tell_person"]
+              and bool(getattr(await sr(), "is_error", False)))
         os.environ.pop("NDA_HANDSHAKE_HOME", None)
 
     shutil.rmtree(test_home, ignore_errors=True)

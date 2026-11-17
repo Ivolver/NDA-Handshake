@@ -41,6 +41,8 @@ PUBLIC_MAIL = {"gmail.com", "googlemail.com", "outlook.com", "hotmail.com", "liv
                "163.com"}
 CONFIRMATION_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                  "forms", "confirmation", "confirmation.md")
+EXCEPTION_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              "forms", "exception", "exception.md")
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 DOMAIN = re.compile(r"^(?=.{4,253}$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
                     r"(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$")
@@ -538,6 +540,156 @@ def read_confirmation(data, label, problems):
     return found
 
 
+# ------------------------------------------------------------- second round
+#
+# A first round that ends in CONFLICTS on a small number of terms can be
+# followed by one second round. In it, a company's file may carry an
+# exception block: wider positions on the failed terms, approved by a person
+# for that one NDA. The block sits outside the nda block, so the company's
+# standing positions and standing confirmation are untouched.
+
+def exception_text():
+    """The fixed wording of a one-deal exception, with Unix line endings."""
+    with open(EXCEPTION_FILE, encoding="utf-8", newline="") as f:
+        return f.read().replace("\r\n", "\n").replace("\r", "\n")
+
+
+def exception_text_fingerprint():
+    return hashlib.sha256(exception_text().encode("utf-8")).hexdigest()
+
+
+def exception_fingerprint(prior, terms):
+    """A fingerprint of what an exception covers: the handshake and the positions."""
+    canonical = json.dumps({"for": prior, "terms": terms}, sort_keys=True,
+                           separators=(",", ":"), default=str)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def effective_positions(data):
+    """A file's nda block with its profile filled in: the positions it really takes."""
+    nda = data.get("nda") if isinstance(data.get("nda"), dict) else {}
+    party = pick_entity(data, None, "Party", [])
+    return apply_profile(nda, party["formed_in"], "Party", [])[0]
+
+
+def open_term_groups(names):
+    """Failed terms counted for eligibility: governing law and venue count as one."""
+    names = list(names)
+    pair = [n for n in names if n in ("governing_law", "venue")]
+    return len([n for n in names if n not in ("governing_law", "venue")]) + (1 if pair else 0)
+
+
+def widens(name, old, new):
+    """True if new accepts everything old accepts, keeps its preference, and adds something."""
+    scrap = []
+    allowed = dict(LIST_TERMS).get(name)
+    if allowed is not None:
+        ro, rn = ranked(old, allowed, name, "", scrap), ranked(new, allowed, name, "", scrap)
+        return bool(ro and rn and rn[0] == ro[0] and set(ro) < set(rn))
+    if name in RANGES:
+        po = read_range(old, RANGES[name], name, "", scrap)
+        pn = read_range(new, RANGES[name], name, "", scrap)
+        return bool(po and pn and pn[0] <= po[0] and pn[1] >= po[1] and pn[2] == po[2]
+                    and (pn[0], pn[1]) != (po[0], po[1]))
+    if name in TOGGLES:
+        return ((clean(old) or "accept").lower() in ("require", "reject")
+                and (clean(new) or "").lower() == "accept")
+    return False
+
+
+def exception_options(name, mine, theirs):
+    """The wider positions one side could take on a failed term.
+
+    Returns {"accept_theirs": position or None, "neutral": position or None,
+    "neutral_value": value or None}. accept_theirs reaches the other side's
+    nearest position. neutral reaches a middle value the protocol names by
+    fixed rule, the same for both sides, where one exists.
+    """
+    scrap, out = [], {"accept_theirs": None, "neutral": None, "neutral_value": None}
+    allowed = dict(LIST_TERMS).get(name)
+    if allowed is not None and name != "form":
+        rm, rt = ranked(mine, allowed, name, "", scrap), ranked(theirs, allowed, name, "", scrap)
+        if not rm or not rt or set(rm) & set(rt):
+            return out
+        out["accept_theirs"] = {"prefer": rm[0], "accept": rm + rt}
+        middle = None
+        if name in ("governing_law", "venue"):
+            middle = PROFILE_FALLBACK_STATE
+        elif name == "marking_requirement" and set(rm) | set(rt) == {MARKING[0], MARKING[2]}:
+            middle = MARKING[1]
+        if middle and middle not in rm and middle not in rt:
+            out["neutral"] = {"prefer": rm[0], "accept": rm + [middle]}
+            out["neutral_value"] = middle
+    elif name in RANGES:
+        pm = read_range(mine, RANGES[name], name, "", scrap)
+        pt = read_range(theirs, RANGES[name], name, "", scrap)
+        if not pm or not pt or max(pm[0], pt[0]) <= min(pm[1], pt[1]):
+            return out
+        below = pm[1] < pt[0]                      # my range lies below theirs
+        mine_edge, their_edge = (pm[1], pt[0]) if below else (pm[0], pt[1])
+
+        def reach(value):
+            lo, hi = (pm[0], value) if below else (value, pm[1])
+            return {"prefer": pm[2], "min": lo, "max": hi}
+        out["accept_theirs"] = reach(their_edge)
+        if abs(their_edge - mine_edge) >= 2:
+            middle = int((mine_edge + their_edge) / 2 + 0.5)
+            out["neutral"], out["neutral_value"] = reach(middle), middle
+    elif name in TOGGLES:
+        pm, pt = (clean(mine) or "accept").lower(), (clean(theirs) or "accept").lower()
+        if {pm, pt} == {"require", "reject"}:
+            out["accept_theirs"] = "accept"
+    return out
+
+
+def read_exception(data, nda, label, prior, open_terms, problems):
+    """One file's exception for this second round, or None if it has no usable one.
+
+    nda is the file's positions with its profile applied. Anything missing
+    or wrong means no exception, so the file is matched on its standing
+    positions alone.
+    """
+    raw = data.get("exception")
+    if raw is None:
+        return None
+    if not isinstance(raw, dict) or not isinstance(raw.get("terms"), dict) or not raw["terms"]:
+        problems.append(f"{label}: exception must be a block of fields with terms")
+        return None
+    date = raw.get("date")
+    if isinstance(date, datetime.date):
+        date = date.isoformat()[:10]
+    date = clean(date)
+    try:
+        datetime.date.fromisoformat(date or "")
+    except ValueError:
+        date = None
+    approved_by = clean(raw.get("approved_by"))
+    if not approved_by or not date:
+        problems.append(f"{label}: exception has no usable approved_by or date")
+        return None
+    if (clean(raw.get("for")) or "").lower() != prior:
+        problems.append(f"{label}: the exception was given for a different handshake")
+        return None
+    if (clean(raw.get("text")) or "").lower() != exception_text_fingerprint():
+        problems.append(f"{label}: the exception was given for a different exception "
+                        "text than this protocol version uses")
+        return None
+    terms = raw["terms"]
+    if (clean(raw.get("positions")) or "").lower() != exception_fingerprint(prior, terms):
+        problems.append(f"{label}: the exception's positions changed after it was approved")
+        return None
+    for name, position in terms.items():
+        if name not in open_terms:
+            problems.append(f"{label}: the exception covers {name}, which was not open "
+                            "in the second round")
+            return None
+        if not widens(name, nda.get(name), position):
+            problems.append(f"{label}: the exception on {name} does not only widen the "
+                            "company's standing position")
+            return None
+    return {"approved_by": approved_by, "date": date, "terms": terms}
+
+
 def unstated_terms(nda):
     """The terms a file takes no usable position on, after its profile is applied."""
     out, scrap = [], []
@@ -699,7 +851,7 @@ def check_file(path):
 
 
 def run_match(file_a, file_b, purpose, entity_a=None, entity_b=None,
-              require_confirmation=True):
+              require_confirmation=True, second_round=None):
     """Match two nda-handshake.md files and return the structured result.
 
     Reads only the typed YAML fields at the top of each file. The markdown
@@ -713,6 +865,12 @@ def run_match(file_a, file_b, purpose, entity_a=None, entity_b=None,
     stated a position on every term. Otherwise the result is at most
     AGREED_PENDING_INFO and nothing is executed. It is turned off only to
     read one company's own positions, for a summary or an ordinary draft.
+
+    second_round is given only for the second round of a handshake:
+    {"prior": the first round's commitment, "terms": the terms the first
+    round failed on}. Each file's exception block for that handshake, if it
+    has a valid one, then widens its positions on those terms. In every
+    other run an exception block is ignored.
     """
     a, b = load(file_a), load(file_b)
     prints = sorted([fingerprint(file_a), fingerprint(file_b)])
@@ -738,6 +896,16 @@ def run_match(file_a, file_b, purpose, entity_a=None, entity_b=None,
     party_b = pick_entity(b, entity_b, "Party B", missing)
     na, defaulted_a = apply_profile(na, party_a["formed_in"], "Party A", notes)
     nb, defaulted_b = apply_profile(nb, party_b["formed_in"], "Party B", notes)
+
+    exceptions = {}
+    if second_round:
+        for label, data, nda in (("Party A", a, na), ("Party B", b, nb)):
+            found = read_exception(data, nda, label, second_round["prior"],
+                                   list(second_round["terms"]), notes)
+            if found:
+                exceptions[label] = found
+        na = dict(na, **exceptions.get("Party A", {}).get("terms", {}))
+        nb = dict(nb, **exceptions.get("Party B", {}).get("terms", {}))
 
     # A state both parties are formed in is the first principled way to break a tie.
     canon_states = {state.lower(): state for state in US_STATES}
@@ -809,6 +977,11 @@ def run_match(file_a, file_b, purpose, entity_a=None, entity_b=None,
             "confirmed_by": (found or {}).get("confirmed_by"),
             "date": (found or {}).get("date"),
             "sent_from": (found or {}).get("sent_from")})
+        if second_round:
+            used = exceptions.get(label)
+            confirmations[-1]["exception"] = used and {
+                "approved_by": used["approved_by"], "date": used["date"],
+                "terms": sorted(used["terms"])}
     if name_a.lower() > name_b.lower():
         name_a, name_b = name_b, name_a
         for entry in trace:

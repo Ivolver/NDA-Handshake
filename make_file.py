@@ -16,8 +16,9 @@ import json
 import re
 
 from match import (FileText, MatcherError, PROTOCOL_VERSIONS, RANGES, TOGGLES,
-                   check_file, confirmation_text_fingerprint, load,
-                   positions_fingerprint, usable_sent_from)
+                   check_file, confirmation_text_fingerprint, effective_positions,
+                   exception_fingerprint, exception_text_fingerprint, load,
+                   positions_fingerprint, usable_sent_from, widens)
 
 CHOICES = ["form", "confidentiality_starts", "governing_law", "venue",
            "marking_requirement"]
@@ -259,4 +260,57 @@ def with_confirmation(text, confirmed_by, sent_from, date=None):
         raise MatcherError(
             "The confirmation could not be written into this file safely. "
             "Run check_file on the file and fix what it reports first.")
+    return out
+
+
+def with_exception(text, prior, approved_by, terms, date=None):
+    """A company's file with a one-deal exception added, for a second round.
+
+    prior is the first round's commitment. terms maps each excepted term to
+    the wider position approved for this one NDA. approved_by is the name
+    and title of the person who approved it, as they typed it. Only the
+    exception block is added; the company's positions, its confirmation and
+    every other line are kept as they are, so the standing confirmation
+    still applies.
+
+    This records an approval a person has given. It must be called only
+    after that person has read the exception text and typed their name.
+    """
+    problems = []
+    approved_by = _text(approved_by, "approved_by", problems)
+    if problems or not approved_by:
+        raise MatcherError("The exception needs the name and title of the person "
+                           "approving it, as one line.")
+    if not re.fullmatch(r"[0-9a-f]{64}", prior or ""):
+        raise MatcherError("The exception needs the first round's commitment.")
+    try:
+        day = (datetime.date.fromisoformat(date) if date else datetime.date.today()).isoformat()
+    except ValueError:
+        raise MatcherError("The date must be written as YYYY-MM-DD.")
+    data = load(FileText(text))
+    if "exception" in data:
+        raise MatcherError("The file already carries an exception.")
+    standing = effective_positions(data)
+    if not terms or not all(widens(name, standing.get(name), position)
+                            for name, position in terms.items()):
+        raise MatcherError("An exception may only widen the company's standing "
+                           "position on a term.")
+    m = re.match(r"^(---\s*\n)(.*?)(\n---\s*(?:\n|$))", text, re.S)
+    if not m:
+        raise MatcherError("The file has no YAML block at the top")
+    block = ["", "", "exception:",
+             f"  for: {_q(prior)}",
+             f"  approved_by: {_q(approved_by)}",
+             f"  date: {_q(day)}",
+             f"  text: {_q(exception_text_fingerprint())}",
+             "  terms:"]
+    block += [f"    {name}: {_q(terms[name])}" for name in sorted(terms)]
+    block += [f"  positions: {_q(exception_fingerprint(prior, terms))}"]
+    out = m.group(1) + m.group(2).rstrip("\n") + "\n".join(block) + m.group(3) + text[m.end():]
+
+    # Nothing but the exception may have changed, and it must read back as given.
+    after = load(FileText(out))
+    rest = {key: value for key, value in after.items() if key != "exception"}
+    if rest != data or after["exception"].get("terms") != terms:
+        raise MatcherError("The exception could not be written into this file safely.")
     return out

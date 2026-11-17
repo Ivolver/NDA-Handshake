@@ -98,6 +98,10 @@
           "type": "boolean",
           "description": "True if the company needs a term the protocol excludes."
         },
+        "second_round": {
+          "type": "boolean",
+          "description": "False if the company never wants a second round. Absent means second rounds are allowed."
+        },
         "profile": {
           "enum": [
             "default"
@@ -533,6 +537,36 @@
             "reject",
             "require"
           ]
+        }
+      }
+    },
+    "exception": {
+      "type": "object",
+      "description": "A one-deal exception, present only in a file sent in a second round. It widens the company's positions on terms the first round failed on, for that one NDA. Ignored in any other run.",
+      "properties": {
+        "for": {
+          "type": "string",
+          "description": "The commitment of the first round this exception belongs to."
+        },
+        "approved_by": {
+          "type": "string",
+          "description": "Name and title of the person who approved the exception."
+        },
+        "date": {
+          "type": "string",
+          "description": "The day it was approved, as YYYY-MM-DD."
+        },
+        "text": {
+          "type": "string",
+          "description": "The fingerprint of the exception text."
+        },
+        "terms": {
+          "type": "object",
+          "description": "The wider position on each excepted term, in the same shape as the nda block."
+        },
+        "positions": {
+          "type": "string",
+          "description": "The fingerprint of for and terms together."
         }
       }
     },

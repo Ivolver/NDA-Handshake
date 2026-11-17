@@ -389,6 +389,13 @@
               "string",
               "null"
             ]
+          },
+          "exception": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "Present only in a second round: the one-deal exception this company used, or null if it used none."
           }
         }
       }

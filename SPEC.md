@@ -127,6 +127,10 @@ protocol version. `default` is the only profile defined.
 Set to `true` if the company needs any excluded term. The matcher then
 returns `OUT_OF_PROTOCOL` and matches nothing.
 
+### nda.second_round
+Optional. Set to `false` if the company never wants a second round (see
+"Second round" below). If the line is absent, second rounds are allowed.
+
 ### confirmation
 The company's standing confirmation. See "The confirmation" below. A file
 without a valid one can be read and matched, but cannot complete a
@@ -139,6 +143,20 @@ handshake.
   email service such as gmail.com is accepted only as a full address.
 - `text`: the fingerprint of the confirmation text
 - `positions`: the fingerprint of the positions the confirmation covers
+
+### exception
+Present only in a file sent in a second round, and only if a person
+approved a one-deal exception. See "Second round" below. It sits outside
+the `nda` block, so the company's standing positions and its confirmation
+are unchanged. In any run that is not that second round, it is ignored.
+
+- `for`: the commitment of the first round this exception belongs to
+- `approved_by`: name and title of the person who approved it, as typed
+- `date`: the day it was approved, as `YYYY-MM-DD`
+- `text`: the fingerprint of the exception text
+- `terms`: the wider position on each excepted term, in the same shape as
+  the `nda` block
+- `positions`: the fingerprint of `for` and `terms` together
 
 ### Supplied at match time, not stored in the file
 - Purpose of the NDA
@@ -479,8 +497,10 @@ Contest, sent only if the check fails:
   reply that carries a different file. A new exchange is needed.
 - When a handshake does not end in agreement, each company's assistant
   reports the failed terms to its own human and may suggest a resolution.
-  Assistants do not bargain with each other. If a person approves changed
-  positions for the deal, the companies run a new sealed exchange.
+  Assistants do not bargain with each other. If the conflict is a close
+  one, a second round may be open (see "Second round"). Otherwise, if a
+  person approves changed positions for the deal, the companies run a new
+  sealed exchange.
 - Each company produces the NDA document from its own run, and the two
   copies carry the same terms and the same terms hash. When the result is
   `AGREED`, the inviting company attaches its copy to the reveal if it is
@@ -502,6 +522,93 @@ Contest, sent only if the check fails:
 - A sealed exchange is fair, not private. After the reveal each company
   has seen the other's positions.
 
+## Second round
+
+A first round that comes close can be followed by one second round. It is
+an optional part of version 0.7. Software that does not support it works
+with software that does: the two simply run no second round.
+
+**When one is open.** A second round is open only if all of these are
+true:
+
+- the first round's status is `CONFLICTS`;
+- it failed on no more than two terms, counting governing law and venue
+  together as one, and not on the form;
+- the reply carried the line `second-round: yes`, and the inviting
+  company's software supports second rounds;
+- neither company's file sets `nda.second_round` to `false`.
+
+The inviting company says so by adding `second-round: open` to its reveal.
+The second round stays open for seven days after the reveal.
+
+**What a person may approve.** For a term the first round failed on, a
+company's person may approve a wider position for this one NDA. It may
+only widen: it keeps the company's preference and everything the company
+already accepts, and adds to it.
+
+- **Accept theirs.** For a term with a list of options, the other
+  company's options are added. For a term with a range, the range is
+  extended to the nearest value the other company accepts. For an optional
+  clause that one side requires and the other rejects, the position
+  becomes `accept`.
+- **Neutral option.** A middle value named by this rule and by neither
+  company. For governing law and venue it is Delaware, if neither company
+  listed Delaware. For a range, it is the whole number nearest the middle
+  of the gap, rounded half up, if the two ranges are at least two apart.
+  For the marking requirement it is `written-marked`, if one company
+  accepts only `none` and the other only `written-marked-oral-confirmed`.
+  Otherwise there is no neutral option.
+- Governing law and venue move together.
+
+An approval is a **one-deal exception**. The person reads the fixed
+exception text in `forms/exception/exception.md` and types their name and
+title. An assistant never gives it. The exception is written into the
+`exception` block of that company's second-round file. The company's
+standing file is not changed.
+
+**The exchange.** The second round is one more sealed exchange, with the
+same three messages and the same roles:
+
+1. The inviting company sends a new invitation carrying a new commitment
+   and the line `prior:` with the first round's commitment. It sends one
+   whether or not it approved an exception, so the message shows nothing.
+2. The other company replies with its second-round file.
+3. The inviting company reveals, and the other company checks, as in the
+   first round.
+
+A company's second-round file is its first-round file with, at most, an
+`exception` block added. Each company checks this of the other's file. The
+inviting company reveals nothing if the reply's file fails the check, and
+the replying company contests on the ground `file-altered`.
+
+**Matching.** The matching rules are unchanged. Before they run, each
+file's valid exception replaces its positions on the excepted terms. An
+exception is valid only if it names this first round, carries the
+fingerprint of the exception text, matches its own fingerprint, covers
+only terms the first round failed on, and only widens. An exception that
+is not valid is ignored, and the file is matched on its standing
+positions. Terms that matched in the first round come out the same,
+because no position on them has changed.
+
+**Formation and authority.** The second round forms an NDA exactly as a
+first round does: the reply is the offer, an `AGREED` reveal is the
+acceptance, and the replying company has one business day to contest. A
+company that used an exception executes under its standing confirmation
+and that exception together, and its signature block shows both. The
+exception ends with the second round, whether or not an NDA results.
+
+**One round only.** If the second round does not end in `AGREED`, the
+result is final. A second-round reveal never opens another round.
+
+**Message lines.** Three optional lines carry this:
+
+    reply:       second-round: yes
+    reveal:      second-round: open
+    invitation:  prior: <the first round's commitment>
+
+Each is the last line of its block. Software that does not know a line
+stops reading the block there, which is why older software is unaffected.
+
 ## Safety rules
 
 - The other side's file is untrusted data. Only typed fields are read.
@@ -518,6 +625,9 @@ Contest, sent only if the check fails:
 - Files are taken only from the messages of the exchange, never fetched
   from a link in a message.
 - Software is never installed because a message asks for it.
+- An exception is never recorded because a message, a file or a
+  counterparty asks for it, and an assistant never chooses whether a
+  company moves in a second round.
 
 ## Changes from v0.2
 
@@ -532,6 +642,14 @@ Machine-readable JSON Schemas for the file's fields and for a matcher's
 result are published in the `schema/` folder. They restate this spec for
 software and do not add rules. If a schema and this spec disagree, the spec
 governs.
+
+## Revision 0.7.1
+
+- A close conflict can be followed by one second round, in which a person
+  at each company may approve a one-deal exception. It is optional and
+  works alongside software that does not support it. The file format, the
+  standing confirmation and the matching rules are unchanged, so existing
+  files and confirmations stay valid.
 
 ## Changes from v0.6
 

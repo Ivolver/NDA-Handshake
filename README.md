@@ -131,10 +131,16 @@ A company can take the protocol's balanced default positions with one
 line, or set its own. `GUIDE.md` walks through each choice in plain
 English.
 
-If two companies' positions do not meet, there is no NDA from the
-handshake. Each assistant tells its own person which terms failed, with a
-suggestion, and the people take it from there. Assistants do not bargain
-with each other. If a company needs something the protocol leaves out,
+If two companies' positions do not meet, there is no NDA from that
+round. Each assistant tells its own person which terms failed. Assistants
+do not bargain with each other.
+
+When the miss is a close one, on one or two terms, there is one second
+round. A person at each company can approve an exception on the failed
+term for this NDA only, or hold. Both companies then commit again under
+seal, so neither sees whether the other moved, and the same rule decides.
+The company's standing positions do not change, and there is no third
+round. If a company needs something the protocol leaves out,
 such as a non-solicit or a one-way NDA, the handshake says so and steps
 aside.
 
@@ -316,6 +322,14 @@ invitation, since it shares the company's positions and offers the NDA,
 and sending a contest. The confirmation is given once, before any
 exchange.
 
+- `second_round(choice, terms, typed_name, title)`: runs the one second
+  round a close handshake allows. With no choice it shows the open terms,
+  both companies' positions, and what each choice would mean. The choices
+  are `accept_theirs`, `neutral`, `hold` and `stop`, and they are the
+  person's to make. The first two are a one-deal exception: the first
+  call returns the exception text, and the second records it only with
+  the name and title the person typed after being shown that text. It
+  returns the sealed second-round email to send.
 - `draft_nda(purpose, counterparty_name)`: for a counterparty that does not
   use NDA Handshake and asks for a draft the usual way. Writes the standard
   form as a Word document with the company's own preferred positions and

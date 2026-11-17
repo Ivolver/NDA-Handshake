@@ -174,6 +174,15 @@ def execution_lines(party, mark, by_hand=False):
         return ["Signature:  " + NOT_EXECUTED, "Applied under its NDA Handshake Confirmation",
                 "Confirmation given by:  ",
                 "Notice Address:  " + party["notice_email"], "Date:  "]
+    if mark.get("exception_by"):
+        return ["Signature:  /s/ " + party["legal_name"],
+                "Applied under its NDA Handshake Confirmation and a One-Deal Exception",
+                "Confirmation given by:  " + (mark.get("confirmed_by") or "")
+                + ", on " + (mark.get("confirmation_date") or "")
+                + ". Exception approved by:  " + mark["exception_by"]
+                + ", on " + (mark.get("exception_date") or ""),
+                "Notice Address:  " + party["notice_email"],
+                "Date:  " + (mark.get("date") or "")]
     return ["Signature:  /s/ " + party["legal_name"],
             "Applied under its NDA Handshake Confirmation",
             "Confirmation given by:  " + (mark.get("confirmed_by") or "")
@@ -475,7 +484,9 @@ def build(result, draft_by=None, signing=None):
         rows.append(("Execution: " + p["legal_name"],
                      "Not executed" if not mark else
                      f"Executed {mark.get('date')} under its NDA Handshake Confirmation, "
-                     f"given by {mark.get('confirmed_by')} on {mark.get('confirmation_date')}"))
+                     f"given by {mark.get('confirmed_by')} on {mark.get('confirmation_date')}"
+                     + (f", and a One-Deal Exception approved by {mark['exception_by']} "
+                        f"on {mark.get('exception_date')}" if mark.get("exception_by") else "")))
     for label, value in rows:
         cells = record.add_row().cells
         shade(cells[0])
