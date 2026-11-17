@@ -111,8 +111,14 @@
     <h2>Fair questions</h2>
     <details>
       <summary>Is it safe to install something because an email told me to?</summary>
-      <p>Be careful with that instinct, and keep it. Do not install anything attached to an email. Get the connector only from this page or from the project's public releases page. It is open source, so anyone can read exactly what it does, and the Claude desktop app shows you what it can access before you install it.</p>
+      <p>Be careful with that instinct, and keep it. Do not install anything attached to an email. Get the connector only from this page or from the project's public releases page. It is open source, so anyone can read exactly what it does.</p>
       <p>If you are unsure, ask for a draft the usual way. That is always a fine answer.</p>
+    </details>
+    <details>
+      <summary>Claude shows a warning when I install it. What does that mean?</summary>
+      <p>When you install, the Claude desktop app warns that the extension can access everything on your computer and that its developer has not been verified by Anthropic. Claude shows that same warning for every extension installed from a downloaded file, whoever made it. It is there because Anthropic has not reviewed the extension, so take it seriously for anything you install.</p>
+      <p>What this connector actually does is much narrower. It works in the one folder you choose for your company's file and NDAs, keeps a small settings folder of its own, and reads an NDA or handshake file only when you or your assistant hand it one. It contains no code that connects to the internet. You do not have to take our word for that: the <a href="https://github.com/Ivolver/NDA-Handshake">full source code is public</a>, and you or your IT team can read it before installing.</p>
+      <p>If your company does not allow unreviewed extensions, ask for a draft the usual way.</p>
     </details>
     <details>
       <summary>What does the connector do with my information?</summary>
