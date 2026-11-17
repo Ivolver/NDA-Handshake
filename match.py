@@ -470,6 +470,15 @@ def confirmation_text():
         return f.read().replace("\r\n", "\n").replace("\r", "\n")
 
 
+# Earlier wordings of the confirmation text that are still honored. A
+# confirmation given under one of them stays valid: the only difference is
+# that the earlier text also said a copy of each agreement would be sent to
+# the company's notices address.
+EARLIER_CONFIRMATION_TEXTS = {
+    "1ef05804d30038833d80240c40636c41f2e207cd87526e919a93ea4150e6e096",
+}
+
+
 def confirmation_text_fingerprint():
     return hashlib.sha256(confirmation_text().encode("utf-8")).hexdigest()
 
@@ -529,7 +538,7 @@ def read_confirmation(data, label, problems):
     if bad:
         problems.append(f"{label}: confirmation has no usable " + ", ".join(bad))
         return None
-    if found["text"] != confirmation_text_fingerprint():
+    if found["text"] not in {confirmation_text_fingerprint()} | EARLIER_CONFIRMATION_TEXTS:
         problems.append(f"{label}: the confirmation was given for a different "
                         "confirmation text than this protocol version uses")
         return None

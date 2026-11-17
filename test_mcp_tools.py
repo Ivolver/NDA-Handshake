@@ -623,12 +623,8 @@ async def run() -> int:
               and "Nobody needs to sign" in revealed["tell_person"]
               and f"saved it at {d['document']}" in revealed["tell_person"]
               and "one business day" in revealed["tell_person"])
-        note = revealed.get("notify") or {}
-        check("the company gets a record copy at its own notices address",
-              note.get("to") == "legal@harbor.example" and note.get("in_thread") is False
-              and "Harbor Example LLC and Lakeside Example LLC" in note.get("subject", "")
-              and note.get("attach_if_possible") == [d.get("document")]
-              and d.get("terms_hash") in note.get("body", ""))
+        check("no record email is asked for: each company keeps its own copy",
+              "notify" not in revealed)
         executed_cells = "\n".join(c.text for tb in _docx.Document(d["document"]).tables
                                    for r in tb.rows for c in r.cells)
         check("the NDA carries both companies' signatures and no blank to sign",
@@ -683,7 +679,7 @@ async def run() -> int:
               and verified.get("send") is None
               and verified["details"].get("executed") == today
               and "The NDA is in place" in verified["tell_person"]
-              and (verified.get("notify") or {}).get("to") == "legal@harbor.example"
+              and "notify" not in verified
               and all(verified["details"]["checks"].values())
               and os.path.isfile(verified["details"].get("document") or ""))
         forged = rev3["message_block"].replace(rev3["result"]["terms_hash"], "0" * 64)

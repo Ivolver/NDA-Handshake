@@ -70,7 +70,7 @@ Each result has: `tell_person` (say this to the person), `ask_person` (if presen
 
 When a result has `send` and no `ask_person`, send it right away. Any approval it needed has already been given, so do not ask the person to confirm again.
 
-If a result has `notify`, send that email too. It goes to the person's own company, at its own notices address, as a record that an NDA was executed. Attach the files in `notify.attach_if_possible` if you can read them. If you cannot, send the record email without them and tell the person where the NDA is saved; do not ask them to connect a folder for this.
+If the person asks you to continue, retry or resend a step, call `handshake` again with the same email, attachment and sender, and use the new result. Do not work from a result you were given earlier in the conversation. Calling it again is safe: a step that was already done returns the same email to send.
 
 Threading: when `send.in_thread` is true, send the email as a true reply to the message that carried the block you were given, using your mail tool's reply function, so the whole exchange stays in one conversation. Do not send a new message with a "Re:" subject. If you cannot reply in the same conversation, send anyway and tell the person.
 
@@ -319,30 +319,6 @@ def _document(result: dict, folder: str, signing: dict | None = None):
     path = os.path.join(folder, make_cover_page.document_name(result, executed=executed))
     make_cover_page.build(result, signing=signing or {}).save(path)
     return path
-
-
-def _notify(info: dict, document: str | None):
-    """The record copy a company sends to its own notices address when an NDA
-    is executed. None if this step executed nothing new."""
-    if not (info.get("newly_executed") and info.get("executed")):
-        return None
-    own, result = info.get("own_name"), info.get("result") or {}
-    parties = (result.get("terms") or {}).get("parties", [])
-    to = next((p["notice_email"] for p in parties if p["legal_name"] == own), None)
-    other = next((p["legal_name"] for p in parties if p["legal_name"] != own),
-                 "the other company")
-    if not to:
-        return None
-    return {"to": to, "in_thread": False,
-            "subject": f"NDA executed: {own} and {other}",
-            "body": "\n".join([
-                "For the company's records.", "",
-                f"A mutual NDA between {own} and {other} was executed on "
-                f"{sealed.nice_date(info['executed'])} through NDA Handshake, under each "
-                "company's standing confirmation. Nobody signed it by hand.", "",
-                f"Terms hash: {result.get('terms_hash')}",
-                f"Saved in: {info.get('deal_folder')}", ""]),
-            "attach": [], "attach_if_possible": [document] if document else []}
 
 
 def _replace_own_file(content: str) -> str:
@@ -960,8 +936,9 @@ def handshake(message_text: str = "", attachment_content: str = "",
     required attachment as base64, so it can be attached even when the
     folder it is saved in cannot be read: copy that value exactly. The
     NDA document is never attached to a handshake email; each company
-    keeps the copy its own run produces. If the result has `notify`, send that
-    email as well: it is the company's own record that an NDA was executed.
+    keeps the copy its own run produces. Calling handshake again with the
+    same email is safe and returns the same step, so do that whenever you
+    are asked to continue or resend.
 
     Nobody signs. When the positions meet, the NDA is executed at the
     moment the inviting company's reveal is sent, under the standing
@@ -979,12 +956,9 @@ def handshake(message_text: str = "", attachment_content: str = "",
     second round returns the step `second_round_choice` and is answered
     with second_round, not with approved=true.
     """
-    def out(step, tell, ask=None, send=None, notify=None, **details):
-        result = {"step": step, "tell_person": tell, "ask_person": ask,
-                  "send": _attachable(send), "details": details}
-        if notify:
-            result["notify"] = notify
-        return result
+    def out(step, tell, ask=None, send=None, **details):
+        return {"step": step, "tell_person": tell, "ask_person": ask,
+                "send": _attachable(send), "details": details}
 
     try:
         # Setup comes first, whatever was asked.
@@ -1197,7 +1171,7 @@ def handshake(message_text: str = "", attachment_content: str = "",
                                 deal_folder=rev["deal_folder"], terms_hash=None,
                                 report=rev["report"], second_round=rev["second_round"]))
             return out("reveal_ready", tell, send=send,
-                       notify=_notify(rev, rev.get("document")), status=rev["status"],
+                       status=rev["status"],
                        executed=rev["executed"], document=rev.get("document"),
                        deal_folder=rev["deal_folder"],
                        terms_hash=rev["result"].get("terms_hash"), report=rev["report"])
@@ -1242,7 +1216,7 @@ def handshake(message_text: str = "", attachment_content: str = "",
                 tell += ("\n\nThat was the second and final round. If the NDA is still "
                          "wanted, the people at the two companies negotiate it the "
                          "ordinary way.")
-        return out("checked", tell, notify=_notify(chk, chk.get("document")),
+        return out("checked", tell,
                    status=chk["status"], executed=chk["executed"],
                    document=chk.get("document"), deal_folder=chk["deal_folder"],
                    checks=chk["checks"], terms_hash=chk["result"].get("terms_hash"),

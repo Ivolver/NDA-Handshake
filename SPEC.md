@@ -324,8 +324,11 @@ words. In short, the person giving it:
 - agrees that a counterparty may rely on the confirmation.
 
 The fingerprint of the confirmation text for this version is
-`1ef05804d30038833d80240c40636c41f2e207cd87526e919a93ea4150e6e096` (SHA-256 of the text with LF
-line endings).
+`8d77b7df19f0f72c8227ca1dbb0b6d8d0a1996b217881c4b0f70418812bac580` (SHA-256 of the text with LF
+line endings). A confirmation given under the earlier text, fingerprint
+`1ef05804d30038833d80240c40636c41f2e207cd87526e919a93ea4150e6e096`, stays valid. The only difference is that
+the earlier text also said a copy of each NDA would be sent to the
+company's notices address.
 
 **How it is given.** The person reads the whole text and types their own
 name and title. Software records that in the file's `confirmation` block
@@ -506,8 +509,8 @@ Contest, sent only if the check fails:
   carries both companies' signatures and the date and is the fully
   executed NDA.
 - Each company keeps a record of every NDA formed: the commitment, the
-  terms hash, both file fingerprints, both confirmations and the date. It
-  sends a copy of the NDA to its own notices address.
+  terms hash, both file fingerprints, both confirmations and the date, with
+  its copy of the NDA.
 - The messages are linked by the commitment, not by the email thread, so
   an exchange still works if an email program fails to thread a message.
 - A person starts each exchange a company invites, and an assistant

@@ -459,8 +459,6 @@ NDA Handshake runs entirely on your own computer.
   with your approval, and they go only to the counterparty you chose. An
   exchange shares your company's positions with that counterparty; that is
   its purpose, and your assistant asks before replying to an invitation.
-  When an NDA is executed, your assistant also emails a record copy to
-  your own company's notices address.
 - **Third parties:** none on the project's side. Your AI assistant and your
   email provider handle the content of your conversations and emails under
   their own terms. A one-click install lets the app download Python and

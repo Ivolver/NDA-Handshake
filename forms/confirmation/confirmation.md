@@ -36,7 +36,7 @@ The person named in the confirmation block of a company's nda-handshake.md file 
 
 8. **Reliance.** A counterparty may rely on this Confirmation. The Company will not contest the validity or enforceability of an agreement formed within these limits, or its attribution to the Company, on the ground that no individual reviewed or signed it.
 
-9. **Records.** The Company will keep the handshake record for each agreement, including the terms hash and both file fingerprints. A copy of each agreement is to be sent to the notices address stated in the File.
+9. **Records.** The Company will keep the handshake record for each agreement, including the terms hash and both file fingerprints, together with its copy of the agreement.
 
 10. **Withdrawal.** The Company may withdraw this Confirmation at any time by removing the confirmation block from the File. Withdrawal applies to handshakes sealed afterwards and does not affect any agreement already formed.
 

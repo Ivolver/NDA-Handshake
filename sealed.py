@@ -975,7 +975,9 @@ def list_exchanges():
                 state = ("finished: contested by the other company (" + r["contested"]
                          + "); no NDA is in place")
             elif r.get("revealed") and r.get("executed"):
-                state = f"finished: NDA executed on {r['executed']}"
+                # This software prepares the result email; it cannot see it leave.
+                state = (f"finished: agreed on {r['executed']}; the NDA is in place "
+                         "once the result email has been sent")
             other = r.get("replied_by") or r.get("counterparty") or "not yet known"
         else:
             if r.get("checked"):

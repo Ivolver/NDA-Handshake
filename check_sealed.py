@@ -257,14 +257,26 @@ with tempfile.TemporaryDirectory() as tmp:
           and not check_file(FileText(bare))["confirmation"]["confirmed"])
     redone = make_file.with_confirmation(bare, "Alex Sample, Chief Executive Officer",
                                          "harbor.example", "2026-11-02")
-    check("giving it again restores the same file", redone == harbor)
+    earlier = "1ef05804d30038833d80240c40636c41f2e207cd87526e919a93ea4150e6e096"
+    current = check_file(FileText(harbor))["confirmation"]["text_fingerprint"]
+    check("giving it again restores the same file, under the current confirmation text",
+          current != earlier and earlier in harbor
+          and redone == harbor.replace(earlier, current)
+          and check_file(FileText(redone))["confirmation"]["ready"])
+    check("a confirmation given under the earlier text is still honored",
+          check_file(FileText(harbor))["confirmation"]["ready"]
+          and run_match(FileText(redone), FileText(lakeside), PURPOSE)["status"] == "AGREED")
+    check("the current text no longer says a copy is sent to the notices address",
+          "notices address" not in open(os.path.join(
+              HERE, "forms", "confirmation", "confirmation.md"), encoding="utf-8").read()
+          .split("**Records.**")[1].split("\n")[0])
     moved = harbor.replace("prefer: 1, min: 1, max: 2", "prefer: 1, min: 1, max: 5")
     report = check_file(FileText(moved))["confirmation"]
     check("a confirmation does not survive a change to the positions",
           not report["confirmed"] and "positions changed" in " ".join(report["problems"]))
     check("so the changed file cannot start a handshake",
           refused(sealed.make_invitation, PURPOSE, FileText(moved)))
-    other_text = harbor.replace(report["text_fingerprint"], "0" * 64)
+    other_text = harbor.replace(earlier, "0" * 64)
     check("a confirmation of some other text does not count",
           not check_file(FileText(other_text))["confirmation"]["confirmed"])
     check("a public email service does not count as a company domain",

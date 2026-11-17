@@ -1,7 +1,7 @@
 {
   "name": "nda-handshake",
   "displayName": "NDA Handshake Connector",
-  "version": "0.14.1",
+  "version": "0.14.2",
   "description": "Put a standard mutual NDA in place with another company by a sealed exchange of three emails, with no redlines and no signature round.",
   "author": {
     "name": "Ultra Vires Labs LLC",
