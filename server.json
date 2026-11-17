@@ -7,13 +7,13 @@
     "url": "https://github.com/Ivolver/NDA-Handshake",
     "source": "github"
   },
-  "version": "0.13.0",
+  "version": "0.13.1",
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/Ivolver/NDA-Handshake/releases/download/v0.13.0/nda-handshake-0.13.0.mcpb",
-      "version": "0.13.0",
-      "fileSha256": "ae8940764f5d367d03367c7fff804489c54bfc30e8e037d7aee845470c709ff5",
+      "identifier": "https://github.com/Ivolver/NDA-Handshake/releases/download/v0.13.1/nda-handshake-0.13.1.mcpb",
+      "version": "0.13.1",
+      "fileSha256": "15a68d8c89ddf5443ca2207030949fb57275bf697d3ae1ab015951285b4cce07",
       "transport": {
         "type": "stdio"
       },

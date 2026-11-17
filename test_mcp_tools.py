@@ -11,6 +11,7 @@ import asyncio
 import datetime
 import json
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -407,6 +408,40 @@ async def run() -> int:
               and "signed" in second.get("ask_person", "")
               and len(guide["reading_past_ndas"]["what_to_look_for"]) == 8
               and "outside_the_protocol" in guide["reading_past_ndas"])
+        bespoke = guide["reading_past_ndas"].get("bespoke_terms", {})
+        form = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "forms",
+                                 "common-paper-mnda-1.0", "standard-terms.md"),
+                    encoding="utf-8").read().replace("\u2019", "'")
+        sections = {int(m.group(1)): m.group(2) for m in
+                    re.finditer(r"(?ms)^(\d+)\. \*\*(.*?)(?=^\d+\. \*\*|\Z)", form)}
+        proof = {"Keeping the talks": "existence and status",
+                 "Use only for": "solely for the",
+                 "Sharing with employees": "reasonable need to know",
+                 "Standard of care": "reasonable standard of care",
+                 "The usual exceptions": "independently developed",
+                 "Disclosure compelled": "subpoena or court order",
+                 "Obligations that survive": "will survive",
+                 "Return or destruction": "confirm its compliance",
+                 "No license": "grants no license",
+                 "No warranty": "WITHOUT WARRANTIES",
+                 "Injunctive relief": "including an injunction",
+                 "No obligation": "proceed with any proposed transaction",
+                 "Assignment": "Neither party may assign",
+                 "Entire agreement": "entire agreement"}
+        covered = bespoke.get("already_in_the_standard_form", {}).get("terms", [])
+        def _proved(entry):
+            key = next((k for k in proof if entry["term"].startswith(k)), None)
+            return key is not None and proof[key] in sections.get(entry["section"], "")
+        check("every term said to be in the standard form is in the section it names",
+              len(covered) == len(proof) and all(_proved(e) for e in covered))
+        check("bespoke terms are sorted into three kinds, each with what to say, and the "
+              "guidance explains without advising",
+              all(bespoke.get(k, {}).get("say") and bespoke[k]["terms"]
+                  for k in ("already_in_the_standard_form", "usually_in_another_agreement",
+                            "may_be_a_real_need"))
+              and "do not advise" in guide["reading_past_ndas"]["outside_the_protocol"]
+              and "ordinary way" in guide["reading_past_ndas"]["outside_the_protocol"]
+              and "custom_terms_required" in guide["reading_past_ndas"]["outside_the_protocol"])
         shown = _structured(await client.call_tool("draft_file", facts))
         check("draft_file returns every position in plain English",
               len(shown.get("your_positions", [])) == 9

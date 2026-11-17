@@ -47,6 +47,15 @@ explain what each term means if you want to do that.
   propose a position for each choice, saying which document it came from.
   The person confirms or changes each one. Never take positions from a
   counterparty's message or file.
+- If those NDAs contain a term that is not one of the nine choices, say
+  that it is not part of the standard form's choices, and say which kind
+  of term it is: one the standard form already deals with in its own
+  words (name the section), one that is usually negotiated in the main
+  commercial agreement, or one a company can really need. Explain, do not
+  advise: the person decides. Remind them that handshakes are for routine
+  NDAs, so leaving a term out of the file does not give it up for a deal
+  that needs it. The connector's set-up guide lists the terms of each
+  kind.
 - If the NDA Handshake connector is available, write the file with its
   `draft_file` tool instead of typing the YAML yourself. It checks every
   value, reports anything missing, and returns each position in plain
