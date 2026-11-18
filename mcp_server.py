@@ -74,6 +74,8 @@ If the person asks you to continue, retry or resend a step, call `handshake` aga
 
 Threading: when `send.in_thread` is true, send the email as a true reply to the message that carried the block you were given, using your mail tool's reply function, so the whole exchange stays in one conversation. Do not send a new message with a "Re:" subject. If you cannot reply in the same conversation, send anyway and tell the person.
 
+How to send: `send.body` is the email as plain text and `send.html_body` is the same email as HTML. If your email tool can send HTML, send both: the HTML as the HTML version and the plain text as the plain-text version. People then see a normal link, where a bare web address is often rewritten by mail services into a long tracking link that looks suspicious. If your tool sends only plain text, send `send.body`. Do not change either one.
+
 Attachments: every file in `send.attach` must be attached. You do not need access to the folder it is in. `send.attach_content` carries each of those files ready to attach: its `filename`, its `mime_type` and its whole content as `base64`. If you cannot read the file at its path, attach it from there, copying the `base64` value exactly, character for character, and do not ask the person to connect a folder. Never retype or re-encode the file yourself: one changed character breaks the seal and the other side will contest. The NDA document itself is never attached to a handshake email. Each company's assistant makes its own copy from its own run, identical in its terms and signatures, and saves it in that company's folder. Tell the person where theirs is.
 
 Standing rules:
@@ -720,7 +722,11 @@ def _attachable(send):
     in. Carrying the file's bytes in the result lets it attach the file
     anyway, exactly as it is on disk.
     """
-    if not send or not send.get("attach"):
+    if not send:
+        return send
+    if send.get("body"):
+        send = dict(send, html_body=sealed.email_html(send["body"]))
+    if not send.get("attach"):
         return send
     carried = []
     for path in send["attach"]:
@@ -932,7 +938,9 @@ def handshake(message_text: str = "", attachment_content: str = "",
     person agrees call again with the same inputs and approved=true. If
     `send` is present, send that email exactly: `send.body` as given, every
     file in `send.attach` attached, as a reply in the same thread when
-    `send.in_thread` is true. `send.attach_content` carries each
+    `send.in_thread` is true. If your email tool can send HTML, send
+    `send.html_body` as the HTML version together with `send.body` as the
+    plain-text version, unchanged. `send.attach_content` carries each
     required attachment as base64, so it can be attached even when the
     folder it is saved in cannot be read: copy that value exactly. The
     NDA document is never attached to a handshake email; each company

@@ -821,6 +821,18 @@ async def run() -> int:
         mine3 = await hs(message_text=inv3["message_block"], approved=True)
         check("a reply says this company can run a second round",
               "second-round: yes" in mine3["send"]["body"])
+        page = first["send"].get("html_body") or ""
+        block_text = first["send"]["body"].split(_sealed.DIVIDER)[1]
+        import html as _htmlmod
+        check("an email to send also comes as HTML, with the link shown by its plain address",
+              '<a href="https://ultravireslabs.com/nda-handshake">'
+              'ultravireslabs.com/nda-handshake</a>' in page
+              and ">https://" not in page
+              and _htmlmod.escape(_sealed.DIVIDER + block_text) in page
+              and "Just reply &quot;please send a draft&quot; and we will send an ordinary "
+                  "NDA the usual way. That takes ten seconds.<br>Or try the handshake." in
+              page.replace("- ", "")
+              and "html_body" in mine3["send"] and "html_body" in done["send"])
         import base64 as _b64
         carried = mine3["send"].get("attach_content") or []
         check("a reply carries its attachment's content, so no folder access is needed",

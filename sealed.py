@@ -457,6 +457,56 @@ def _email(lines, block):
     return "\n".join(["Hello,", ""] + lines + ["", DIVIDER, block])
 
 
+def email_html(body):
+    """An email body as HTML, for mail tools that can send it.
+
+    People see flowing paragraphs and a link shown by its plain address.
+    The block for the assistants is kept exactly, in fixed-width type. A
+    plain web address in running text is often rewritten by mail services
+    into a long tracking link; a link with its own text is shown as that
+    text.
+    """
+    import html as _html
+
+    def linked(text):
+        out, pos = [], 0
+        for m in re.finditer(r"https://[^\s<>\"]+[^\s<>\".,;:!?)]", text):
+            out.append(_html.escape(text[pos:m.start()]))
+            url = m.group(0)
+            out.append(f'<a href="{_html.escape(url, quote=True)}">'
+                       f'{_html.escape(url[len("https://"):])}</a>')
+            pos = m.end()
+        return "".join(out) + _html.escape(text[pos:])
+
+    human, found, block = body.partition(DIVIDER)
+    parts = []
+    for para in re.split(r"\n\s*\n", human.strip("\n")):
+        lines = para.split("\n")
+        if any(ln.startswith("  ") for ln in lines):
+            # Indented lines are a short list or a set of terms: keep each on its own line.
+            if not lines[0].startswith("  "):
+                parts.append('<p style="margin:0 0 6px">' + linked(lines[0].strip()) + "</p>")
+                lines = lines[1:]
+            items, current = [], None
+            for ln in lines:
+                starts = ln.startswith("  ") and not ln.startswith("    ")
+                if starts or current is None:
+                    current = ln.strip()
+                    items.append(current)
+                else:
+                    items[-1] += " " + ln.strip()
+            parts.append('<p style="margin:0 0 14px 18px">'
+                         + "<br>".join(linked(i) for i in items) + "</p>")
+        else:
+            parts.append('<p style="margin:0 0 14px">'
+                         + linked(" ".join(ln.strip() for ln in lines)) + "</p>")
+    if found:
+        parts.append('<pre style="font-family:Menlo,Consolas,monospace;font-size:12px;'
+                     'color:#555;margin:22px 0 0">' + _html.escape(DIVIDER + block) + "</pre>")
+    return ('<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;'
+            'line-height:1.5;color:#222">' + "".join(parts) + "</div>")
+
+
 def _years(n):
     return f"{n} year" if n == 1 else f"{n} years"
 
