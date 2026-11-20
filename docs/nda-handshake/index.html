@@ -47,6 +47,9 @@
   @media (min-width: 760px) { .steps { grid-template-columns: repeat(3, 1fr); } }
   .step { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
   .step b { display: block; color: var(--accent); font-size: 14px; letter-spacing: .04em; text-transform: uppercase; }
+  .film { margin: 34px 0 6px; }
+  .film video { display: block; width: 100%; height: auto; border-radius: 14px; border: 1px solid var(--line); background: #0b1320; }
+  .film figcaption { color: var(--soft); font-size: 15px; margin-top: 8px; }
   .aside { color: var(--soft); margin-top: -6px; }
   .forai { background: var(--card); border: 1px dashed var(--line); border-radius: 12px; padding: 8px 20px; font-size: 16px; }
   .forai code { font: 14.5px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
@@ -88,6 +91,14 @@
         <p class="time">Free and open source. It runs on your own computer.</p>
       </section>
     </div>
+
+    <figure class="film">
+      <video controls preload="none" playsinline poster="video-poster.jpg" width="1280" height="720">
+        <source src="nda-handshake.mp4" type="video/mp4">
+        Your browser cannot play this video. <a href="nda-handshake.mp4">Download it</a>.
+      </video>
+      <figcaption>The 50-second version. It has sound, and captions throughout.</figcaption>
+    </figure>
 
     <h2>How to do the handshake</h2>
     <ol>
