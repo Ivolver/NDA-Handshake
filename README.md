@@ -322,6 +322,15 @@ invitation, since it shares the company's positions and offers the NDA,
 and sending a contest. The confirmation is given once, before any
 exchange.
 
+- `companies(action, name, folder)`: one installation can act for more
+  than one company, each with its own folder, file, confirmation and
+  deals. With no action it lists them and says which is active. `add`
+  adds one and makes it active, `switch` changes the active one, `show`
+  gives a company's nine positions in plain words, and `remove` takes one
+  off the list without touching its files. `handshake` also takes
+  `company`, to act for another company once. When more than one company
+  is set up, every result begins by naming the company it acts for and
+  the address its emails must go out from.
 - `second_round(choice, terms, typed_name, title)`: runs the one second
   round a close handshake allows. With no choice it shows the open terms,
   both companies' positions, and what each choice would mean. The choices

@@ -31,6 +31,8 @@ the file a company committed to is the file it later uses. It sends
 nothing and decides nothing: the terms come from fixed rules applied to
 positions people set, and a person starts or approves each exchange.
 """
+import contextlib
+import contextvars
 import datetime
 import hashlib
 import json
@@ -132,13 +134,236 @@ def installer_storage_folder():
     return os.path.abspath(os.path.expanduser(folder))
 
 
-def storage_folder():
+def base_storage_folder():
+    """The one folder this installation was set up with, before any companies
+    were added: chosen at install, or with the setup tool."""
     chosen = installer_storage_folder()
     if chosen:
         os.makedirs(chosen, exist_ok=True)
         return chosen
     folder = read_settings().get("storage_folder")
     return folder if isinstance(folder, str) and folder else None
+
+
+# ------------------------------------------------------------------ companies
+#
+# One installation can act for more than one company. Each company has its
+# own folder, holding its own nda-handshake.md, confirmation and deals. The
+# list lives in companies.json beside the settings. Until a second company is
+# added there is no list, and everything works from the one folder the
+# installation was set up with, exactly as before.
+
+_ACTING = contextvars.ContextVar("nda_handshake_acting_folder", default=None)
+
+
+def read_companies():
+    """{"active": name or None, "companies": {name: folder}}."""
+    try:
+        with open(os.path.join(home(), "companies.json"), encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        data = {}
+    companies = data.get("companies") if isinstance(data, dict) else None
+    companies = {str(k): v for k, v in (companies or {}).items()
+                 if isinstance(v, str) and v}
+    active = data.get("active") if isinstance(data, dict) else None
+    return {"active": active if active in companies else None, "companies": companies}
+
+
+def _save_companies(data):
+    _write_private(os.path.join(home(), "companies.json"), data)
+
+
+def storage_folder():
+    """The folder of the company this call is acting for.
+
+    In order: a company chosen for this one call, the active company if
+    companies have been added, then the folder the installation was set up
+    with.
+    """
+    acting = _ACTING.get()
+    if acting:
+        return acting
+    listed = read_companies()
+    if listed["active"]:
+        folder = listed["companies"][listed["active"]]
+        os.makedirs(folder, exist_ok=True)
+        return folder
+    return base_storage_folder()
+
+
+@contextlib.contextmanager
+def acting_as(folder):
+    """Act for the company kept in this folder, for the calls made inside."""
+    token = _ACTING.set(folder)
+    try:
+        yield folder
+    finally:
+        _ACTING.reset(token)
+
+
+def _company_facts(folder):
+    """What a company's folder says about it, without failing on a missing file."""
+    path = os.path.join(folder, "nda-handshake.md")
+    facts = {"folder": folder, "file": os.path.isfile(path), "legal_name": None,
+             "known_as": None, "confirmed": False, "sent_from": None}
+    if not facts["file"]:
+        return facts
+    try:
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+        data = load(FileText(text))
+        facts["legal_name"] = _legal_name(text)
+        company = data.get("company")
+        if isinstance(company, dict) and isinstance(company.get("name"), str):
+            facts["known_as"] = company["name"].strip() or None
+        report = check_file(FileText(text))["confirmation"]
+        facts["confirmed"], facts["sent_from"] = bool(report["ready"]), report["sent_from"]
+    except (MatcherError, OSError, KeyError, TypeError, ValueError):
+        pass
+    return facts
+
+
+def list_companies():
+    """Every company this installation can act for, with which one is active.
+
+    Before any company has been added, this is the one company the
+    installation was set up with, if there is one.
+    """
+    listed = read_companies()
+    if not listed["companies"]:
+        base = base_storage_folder()
+        if not base:
+            return []
+        facts = _company_facts(base)
+        return [dict(facts, name=facts["known_as"] or facts["legal_name"]
+                     or os.path.basename(base.rstrip(os.sep)) or "this company",
+                     active=True, listed=False)]
+    return [dict(_company_facts(folder), name=name, active=name == listed["active"],
+                 listed=True)
+            for name, folder in sorted(listed["companies"].items(), key=lambda kv: kv[0].lower())]
+
+
+def find_company(name):
+    """The one company a name refers to: its name here, its legal name, or
+    the start of either. Case does not matter."""
+    wanted = " ".join((name or "").split()).lower()
+    if not wanted:
+        raise MatcherError("Say which company.")
+    companies = list_companies()
+
+    def names(c):
+        return [n.lower() for n in (c["name"], c["legal_name"], c["known_as"]) if n]
+    exact = [c for c in companies if wanted in names(c)]
+    close = exact or [c for c in companies if any(n.startswith(wanted) for n in names(c))]
+    if len(close) == 1:
+        return close[0]
+    known = ", ".join(c["name"] for c in companies) or "none yet"
+    if not close:
+        raise MatcherError(f"No company called \"{name}\" is set up here. Set up: {known}.")
+    raise MatcherError(f"\"{name}\" could mean more than one company. Set up: {known}.")
+
+
+def add_company(name, folder):
+    """Add a company with its own folder and make it the active one.
+
+    The first time a company is added, the company the installation was
+    already set up with is put on the list too, so it is not lost.
+    """
+    name = " ".join((name or "").split())
+    if not name or len(name) > 80:
+        raise MatcherError("Give the company a short name to call it by.")
+    if not folder or "://" in folder:
+        raise MatcherError("Give a local folder for this company's files.")
+    folder = os.path.abspath(os.path.expanduser(folder))
+    listed = read_companies()
+    companies = dict(listed["companies"])
+    if not companies:
+        base = base_storage_folder()
+        if base and os.path.abspath(base) != folder:
+            first = list_companies()[0]
+            companies[first["name"]] = os.path.abspath(base)
+    for other, where in companies.items():
+        if other.lower() == name.lower():
+            raise MatcherError(f"A company called \"{other}\" is already set up here.")
+        if os.path.abspath(where) == folder:
+            raise MatcherError(f"That folder already belongs to \"{other}\". Each company "
+                               "needs a folder of its own.")
+    os.makedirs(folder, exist_ok=True)
+    companies[name] = folder
+    _save_companies({"active": name, "companies": companies})
+    return find_company(name)
+
+
+def switch_company(name):
+    """Make a company the active one."""
+    company = find_company(name)
+    listed = read_companies()
+    companies = dict(listed["companies"])
+    if not company["listed"]:
+        companies[company["name"]] = os.path.abspath(company["folder"])
+    _save_companies({"active": company["name"], "companies": companies})
+    return find_company(company["name"])
+
+
+def remove_company(name):
+    """Take a company off the list. Its folder and files are left alone."""
+    company = find_company(name)
+    listed = read_companies()
+    if not company["listed"]:
+        raise MatcherError("That is the only company set up here, so there is nothing "
+                           "to take off the list.")
+    companies = {k: v for k, v in listed["companies"].items() if k != company["name"]}
+    active = listed["active"] if listed["active"] in companies else None
+    if active is None and companies:
+        active = sorted(companies, key=str.lower)[0]
+    _save_companies({"active": active, "companies": companies})
+    return company
+
+
+def company_positions(folder):
+    """A company's nine positions in plain words, for showing to a person."""
+    path = os.path.join(folder, "nda-handshake.md")
+    if not os.path.isfile(path):
+        raise MatcherError("This company has no nda-handshake.md yet.")
+    with open(path, encoding="utf-8") as f:
+        nda = effective_positions(load(FileText(f.read())))
+    from match import LIST_TERMS, RANGES, TOGGLES
+    order = [n for n, _ in LIST_TERMS] + list(RANGES) + list(TOGGLES)
+    return [{"term": name, "label": TERM_LABELS.get(name, name),
+             "position": _describe(name, nda.get(name))}
+            for name in TERM_LABELS if name in order]
+
+
+def acting_company(message_text=None):
+    """Which company a call acts for, and the address its emails must come from.
+
+    An email that belongs to an exchange already under way acts for the
+    company that started or answered it, whichever company is active now.
+    """
+    text = None
+    if message_text:
+        try:
+            kind = detect_kind(message_text)
+            block = parse_block(message_text, kind)
+            role = {"reply": "inviter", "reveal": "replier", "contest": "inviter"}.get(kind)
+            if kind == "invitation" and block.get("prior"):
+                role, block = "replier", {"commitment": block["prior"]}
+            if role:
+                text = _load_record(role, block["commitment"])["own_file"]
+        except (MatcherError, KeyError):
+            text = None
+    if text is None:
+        path = own_file_path()
+        if not (path and os.path.isfile(path)):
+            return None
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+    try:
+        report = check_file(FileText(text))["confirmation"]
+        return {"company": _legal_name(text), "send_from": report["sent_from"]}
+    except (MatcherError, KeyError):
+        return None
 
 
 def own_file_path():
@@ -849,9 +1074,11 @@ def find_second_round(commitment=None):
         me = own_company()["name"]
     except (MatcherError, OSError):
         me = None
-    if me:
-        # One computer can hold more than one company's records.
-        found = [r for r in found if _legal_name(r["own_file"]) == me]
+    if me and len(found) > 1:
+        # One computer can hold more than one company's records: prefer the
+        # company being acted for now.
+        mine = [r for r in found if _legal_name(r["own_file"]) == me]
+        found = mine or found
     if not found:
         raise MatcherError("No second round is open here. One opens only when a first "
                            "round ended without agreement on one or two terms, both "

@@ -110,9 +110,10 @@ async def run() -> int:
                   if ln.strip() and not ln.startswith("#")} - {"jsonschema"}
         check("pyproject.toml and requirements.txt list the same packages",
               all(f'"{name}>=' in pyproject for name in wanted) and len(wanted) == 3)
-        check("list_tools returns the ten tools",
-              tool_names == ["check_file", "confirm", "draft_file", "draft_nda", "fingerprint",
-                             "handshake", "make_document", "match", "second_round", "setup"],
+        check("list_tools returns the eleven tools",
+              tool_names == ["check_file", "companies", "confirm", "draft_file", "draft_nda",
+                             "fingerprint", "handshake", "make_document", "match",
+                             "second_round", "setup"],
               f"got {tool_names}")
 
         harbor_md = os.path.join(EXAMPLES, "harbor-fictional", "nda-handshake.md")
@@ -881,7 +882,98 @@ async def run() -> int:
               rev4["status"] == "CONFLICTS" and last.get("step") == "checked"
               and "second and final round" in last["tell_person"]
               and bool(getattr(await sr(), "is_error", False)))
+        # ---- More than one company on one installation.
         os.environ.pop("NDA_HANDSHAKE_HOME", None)
+
+        async def co(**kw):
+            return await client.call_tool("companies", kw)
+
+        one = _structured(await co())
+        alone = await hs()
+        check("with one company set up, it is listed and nothing else changes",
+              len(one["companies"]) == 1 and one["companies"][0]["active"]
+              and one["companies"][0]["legal_name"] == "Harbor Example LLC"
+              and one["companies"][0]["confirmed"]
+              and not alone["tell_person"].startswith("Acting for")
+              and alone["details"]["acting_for"]["company"] == "Harbor Example LLC")
+        harbor_folder = one["companies"][0]["folder"]
+        lake_folder = os.path.join(test_home, "storage-lakeside")
+        added = _structured(await co(action="add", name="Lakeside", folder=lake_folder))
+        check("adding a company keeps the first one and makes the new one active",
+              len(added["companies"]) == 2
+              and [c["name"] for c in added["companies"] if c["active"]] == ["Lakeside"]
+              and any(c["folder"] == harbor_folder and c["confirmed"]
+                      for c in added["companies"])
+              and not next(c for c in added["companies"] if c["active"])["has_file"])
+        fresh = await hs()
+        check("a company that was just added has to be set up before it can shake hands",
+              fresh.get("step") == "file_needed" and fresh.get("send") is None)
+        check("a folder cannot be shared by two companies, and a name cannot be reused",
+              bool(getattr(await co(action="add", name="Other", folder=lake_folder),
+                           "is_error", False))
+              and bool(getattr(await co(action="add", name="lakeside",
+                                        folder=lake_folder + "-2"), "is_error", False)))
+        with open(os.path.join(lake_folder, "nda-handshake.md"), "w", encoding="utf-8",
+                  newline="\n") as fh:
+            fh.write(lakeside_text)
+        both = _structured(await co())
+        lake = next(c for c in both["companies"] if c["name"] == "Lakeside")
+        check("the list shows each company's state and the address its emails go out from",
+              lake["confirmed"] and lake["legal_name"] == "Lakeside Example LLC"
+              and lake["emails_go_out_from"] == "lakeside.example"
+              and "Active." in both["tell_person"])
+        as_lake = await hs(purpose=PURPOSE, counterparty="pat@northwind.example")
+        check("a new handshake acts for the active company and says so first",
+              "from: Lakeside Example LLC" in as_lake["send"]["body"]
+              and as_lake["tell_person"].startswith(
+                  "Acting for Lakeside Example LLC. Its handshake emails go out from "
+                  "lakeside.example.")
+              and as_lake["details"]["acting_for"]["send_from"] == "lakeside.example")
+        as_harbor = await hs(purpose=PURPOSE, counterparty="pat@lakeside.example",
+                             company="harbor example")
+        still = _structured(await co())
+        check("one handshake can act for another company without switching",
+              "from: Harbor Example LLC" in as_harbor["send"]["body"]
+              and as_harbor["tell_person"].startswith("Acting for Harbor Example LLC.")
+              and [c["name"] for c in still["companies"] if c["active"]] == ["Lakeside"])
+        check("an unknown company is refused",
+              bool(getattr(await client.call_tool("handshake", {
+                  "purpose": PURPOSE, "counterparty": "x", "company": "Nobody Inc"}),
+                  "is_error", False))
+              and bool(getattr(await co(action="switch", name="Nobody"), "is_error", False)))
+        other_home()
+        rep_h = _sealed.make_reply(as_harbor["send"]["body"], _FileText(lakeside_text))
+        os.environ.pop("NDA_HANDSHAKE_HOME", None)
+        routed = await hs(message_text=rep_h["message_block"],
+                          attachment_content=lakeside_text, sender="legal@lakeside.example")
+        check("a reply is handled for the company that sent the invitation, "
+              "whichever company is active",
+              routed.get("step") == "reveal_ready"
+              and routed["details"]["status"] == "AGREED"
+              and routed["details"]["acting_for"]["company"] == "Harbor Example LLC"
+              and routed["tell_person"].startswith("Acting for Harbor Example LLC.")
+              and routed["details"]["document"].startswith(harbor_folder)
+              and not routed["details"]["document"].startswith(lake_folder))
+        shown_pos = _structured(await co(action="show", name="lake"))
+        check("a company's positions can be shown in plain words",
+              len(shown_pos["details"]["positions"]) == 9
+              and "NDA positions for Lakeside Example LLC" in shown_pos["tell_person"]
+              and "Governing law" in shown_pos["tell_person"])
+        check("with companies listed, the setup tool no longer moves the folder",
+              bool(getattr(await client.call_tool("setup", {
+                  "storage_folder": os.path.join(test_home, "elsewhere")}),
+                  "is_error", False)))
+        back = _structured(await co(action="switch", name="Harbor"))
+        after = await hs()
+        check("switching back restores the first company",
+              [c["legal_name"] for c in back["companies"] if c["active"]]
+              == ["Harbor Example LLC"] and after.get("step") == "status"
+              and after["details"]["acting_for"]["company"] == "Harbor Example LLC")
+        gone = _structured(await co(action="remove", name="Lakeside"))
+        check("removing a company only takes it off the list",
+              len(gone["companies"]) == 1
+              and os.path.isfile(os.path.join(lake_folder, "nda-handshake.md"))
+              and not (await hs())["tell_person"].startswith("Acting for"))
 
     shutil.rmtree(test_home, ignore_errors=True)
 
