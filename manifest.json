@@ -2,7 +2,7 @@
   "manifest_version": "0.4",
   "name": "nda-handshake",
   "display_name": "NDA Handshake",
-  "version": "0.15.0",
+  "version": "0.15.1",
   "description": "Put a standard mutual NDA in place with another company by a sealed exchange of three emails.",
   "long_description": "NDA Handshake lets two companies' assistants settle a standard mutual NDA without trading redlines. Each company keeps a small file with its details and its NDA positions. The assistants exchange three emails under seal, so neither side sees the other's positions before fixing its own, and both work out the same NDA. Everything runs on your own computer. Nothing is fetched from the network and nothing is sent without you. Nobody signs each NDA: a person with authority to bind your company approves its positions once, at setup, and an NDA inside those positions is in place as soon as the exchange completes.",
   "author": {
@@ -83,9 +83,9 @@
     "storage_folder": {
       "type": "directory",
       "title": "Storage folder",
-      "description": "Where to keep your company's NDA Handshake file and your completed NDAs.",
+      "description": "Where to keep your company's NDA Handshake file and your completed NDAs. Choose an ordinary folder on this computer. Avoid iCloud Drive, OneDrive, Dropbox and other synced folders: the connector may not be allowed to read them.",
       "required": true,
-      "default": "${DOCUMENTS}/NDA Handshake"
+      "default": "${HOME}/NDA Handshake"
     }
   },
   "compatibility": {

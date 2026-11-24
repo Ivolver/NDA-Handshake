@@ -395,7 +395,10 @@ Download `nda-handshake-<version>.mcpb` from the project's
 [latest release](https://github.com/Ivolver/NDA-Handshake/releases/latest) and open
 it, or drag it into the Extensions settings of Claude Desktop. The app
 shows what the connector does, asks which folder should hold your
-company's file and your completed NDAs, and installs it. The app manages
+company's file and your completed NDAs, and installs it. Choose an
+ordinary folder on your own computer, not one in iCloud Drive, OneDrive,
+Dropbox or other synced storage: the computer may not let the connector
+read files kept there. The app manages
 Python and the packages the connector needs; you do not need to install
 anything else or use a terminal.
 

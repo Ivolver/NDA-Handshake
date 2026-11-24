@@ -206,12 +206,17 @@ def _company_facts(folder):
     """What a company's folder says about it, without failing on a missing file."""
     path = os.path.join(folder, "nda-handshake.md")
     facts = {"folder": folder, "file": os.path.isfile(path), "legal_name": None,
-             "known_as": None, "confirmed": False, "sent_from": None}
+             "known_as": None, "confirmed": False, "sent_from": None, "readable": True}
     if not facts["file"]:
         return facts
     try:
         with open(path, encoding="utf-8") as f:
             text = f.read()
+    except OSError:
+        # The file is there but this computer will not let it be opened.
+        facts["readable"] = False
+        return facts
+    try:
         data = load(FileText(text))
         facts["legal_name"] = _legal_name(text)
         company = data.get("company")
@@ -219,7 +224,7 @@ def _company_facts(folder):
             facts["known_as"] = company["name"].strip() or None
         report = check_file(FileText(text))["confirmation"]
         facts["confirmed"], facts["sent_from"] = bool(report["ready"]), report["sent_from"]
-    except (MatcherError, OSError, KeyError, TypeError, ValueError):
+    except (MatcherError, KeyError, TypeError, ValueError):
         pass
     return facts
 
@@ -246,7 +251,9 @@ def list_companies():
 
 def find_company(name):
     """The one company a name refers to: its name here, its legal name, or
-    the start of either. Case does not matter."""
+    the start of either. Case does not matter. The name a company is listed
+    under comes first, so a listed name always finds its own company even
+    when another company trades under the same word."""
     wanted = " ".join((name or "").split()).lower()
     if not wanted:
         raise MatcherError("Say which company.")
@@ -254,7 +261,8 @@ def find_company(name):
 
     def names(c):
         return [n.lower() for n in (c["name"], c["legal_name"], c["known_as"]) if n]
-    exact = [c for c in companies if wanted in names(c)]
+    own = [c for c in companies if c["name"].lower() == wanted]
+    exact = own or [c for c in companies if wanted in names(c)]
     close = exact or [c for c in companies if any(n.startswith(wanted) for n in names(c))]
     if len(close) == 1:
         return close[0]

@@ -25,6 +25,7 @@ Safety rules:
 """
 import base64
 import datetime
+import functools
 import hashlib
 import json
 import os
@@ -108,6 +109,37 @@ WRITES_LOCAL_FILES = ToolAnnotations(
     idempotent_hint=True,
     open_world_hint=False,
 )
+
+
+def _blocked(e: OSError) -> str:
+    """Plain words for a file or folder this computer would not open."""
+    where = e.filename or e.filename2
+    return (
+        "NDA Handshake could not open "
+        + (f"{where}" if where else "one of its files")
+        + (f" ({e.strerror})" if e.strerror else "")
+        + ". The file is there, but this computer is not letting the connector use it. "
+        "Nothing is wrong with the file, and nothing was sent or changed. This usually "
+        "means the company's folder is somewhere the computer protects or syncs, such as "
+        "iCloud Drive, OneDrive or Dropbox. To fix it, copy the company's folder to an "
+        "ordinary folder on this computer, for example one directly inside the home "
+        "folder, then add it with the companies tool (action \"add\", with the new "
+        "folder) and try again.")
+
+
+def _tool(annotations):
+    """Register a tool. A file or folder the computer refuses to open is
+    reported in plain words instead of as a bare failure."""
+    def register(fn):
+        @functools.wraps(fn)
+        def guarded(*args, **kwargs):
+            try:
+                return fn(*args, **kwargs)
+            except OSError as e:
+                raise ToolError(_blocked(e)) from e
+        mcp.tool(annotations=annotations)(guarded)
+        return guarded
+    return register
 
 
 def _local_file(path: str) -> str:
@@ -360,7 +392,7 @@ def _own_file_for_confirmation():
     return (updated, True) if n else (text, False)
 
 
-@mcp.tool(annotations=WRITES_LOCAL_FILES)
+@_tool(WRITES_LOCAL_FILES)
 def confirm(typed_name: str = "", title: str = "", sent_from: str = "",
             withdraw: bool = False) -> dict[str, Any]:
     """Show, record or withdraw the company's standing confirmation.
@@ -499,7 +531,7 @@ def confirm(typed_name: str = "", title: str = "", sent_from: str = "",
         raise ToolError(str(e)) from e
 
 
-@mcp.tool(annotations=WRITES_LOCAL_FILES)
+@_tool(WRITES_LOCAL_FILES)
 def draft_nda(purpose: str, counterparty_name: str = "", out_dir: str = "") -> dict[str, Any]:
     """Make an ordinary draft NDA for a counterparty that does not use NDA
     Handshake.
@@ -536,7 +568,7 @@ def draft_nda(purpose: str, counterparty_name: str = "", out_dir: str = "") -> d
             "details": {"document": path, "your_positions": made["positions"]}}
 
 
-@mcp.tool(annotations=WRITES_LOCAL_FILES)
+@_tool(WRITES_LOCAL_FILES)
 def setup(storage_folder: str = "") -> dict[str, Any]:
     """One-time setup: choose the folder where this company keeps its own
     nda-handshake.md and its completed NDAs.
@@ -775,7 +807,7 @@ def _exception_pending_path() -> str:
     return os.path.join(sealed.home(), "exception-shown.json")
 
 
-@mcp.tool(annotations=WRITES_LOCAL_FILES)
+@_tool(WRITES_LOCAL_FILES)
 def second_round(choice: str = "", terms: list[str] | None = None, typed_name: str = "",
                  title: str = "", commitment: str = "") -> dict[str, Any]:
     """Run the second round of a handshake that came close.
@@ -1288,10 +1320,10 @@ handshake.__doc__ = (_handshake.__doc__ or "") + """
     acts for and the address its emails must go out from: say so to the
     person before sending, and send from that address.
     """
-handshake = mcp.tool(annotations=WRITES_LOCAL_FILES)(handshake)
+handshake = _tool(WRITES_LOCAL_FILES)(handshake)
 
 
-@mcp.tool(annotations=WRITES_LOCAL_FILES)
+@_tool(WRITES_LOCAL_FILES)
 def companies(action: str = "", name: str = "", folder: str = "") -> dict[str, Any]:
     """See, add or switch the companies this installation acts for.
 
@@ -1323,10 +1355,14 @@ def companies(action: str = "", name: str = "", folder: str = "") -> dict[str, A
         return {"tell_person": tell, "companies": [
             {"name": c["name"], "legal_name": c["legal_name"], "active": c["active"],
              "folder": c["folder"], "has_file": c["file"], "confirmed": c["confirmed"],
+             "file_readable": c["readable"],
              "emails_go_out_from": c["sent_from"]} for c in listed], "details": details}
 
     def line(c):
         state = ("set up and confirmed" if c["confirmed"] else
+                 "its file is there but this computer will not let the connector open "
+                 "it; move its folder out of iCloud Drive or other synced storage to an "
+                 "ordinary folder, then add it again" if not c["readable"] else
                  "has a file but no confirmation yet" if c["file"] else "not set up yet")
         legal = f" ({c['legal_name']})" if c["legal_name"] and c["legal_name"] != c["name"] else ""
         return (f"- {c['name']}{legal}: {state}"
@@ -1370,7 +1406,7 @@ def companies(action: str = "", name: str = "", folder: str = "") -> dict[str, A
         raise ToolError(str(e)) from e
 
 
-@mcp.tool(annotations=WRITES_LOCAL_FILES)
+@_tool(WRITES_LOCAL_FILES)
 def draft_file(legal_name: str, entity_type: str, formed_in: str, address: str,
                signatory_name: str, signatory_title: str, notices_email: str,
                use_default_positions: bool = True,
@@ -1457,7 +1493,7 @@ def draft_file(legal_name: str, entity_type: str, formed_in: str, address: str,
     return draft
 
 
-@mcp.tool(annotations=READ_ONLY)
+@_tool(READ_ONLY)
 def check_file(file_path: str = "", content: str = "") -> dict[str, Any]:
     """Validate one nda-handshake.md without matching it against anything.
 
@@ -1479,7 +1515,7 @@ def check_file(file_path: str = "", content: str = "") -> dict[str, Any]:
         raise ToolError(str(e)) from e
 
 
-@mcp.tool(annotations=READ_ONLY)
+@_tool(READ_ONLY)
 def fingerprint(file_path: str = "", content: str = "") -> str:
     """Return the SHA-256 fingerprint of an nda-handshake.md file.
 
@@ -1498,7 +1534,7 @@ def fingerprint(file_path: str = "", content: str = "") -> str:
         raise ToolError(str(e)) from e
 
 
-@mcp.tool(annotations=WRITES_LOCAL_FILES)
+@_tool(WRITES_LOCAL_FILES)
 def match(purpose: str, file_a: str = "", file_b: str = "", content_a: str = "",
           content_b: str = "", out_dir: str = "") -> dict[str, Any]:
     """Match two nda-handshake.md files and return the structured result.
@@ -1541,7 +1577,7 @@ def match(purpose: str, file_a: str = "", file_b: str = "", content_a: str = "",
     return result
 
 
-@mcp.tool(annotations=WRITES_LOCAL_FILES)
+@_tool(WRITES_LOCAL_FILES)
 def make_document(result_path: str = "", result: dict[str, Any] | None = None,
                   out_path: str = "") -> str:
     """Write a copy of the Mutual NDA as a Word document for an AGREED result.

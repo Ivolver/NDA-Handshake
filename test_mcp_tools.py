@@ -974,6 +974,68 @@ async def run() -> int:
               len(gone["companies"]) == 1
               and os.path.isfile(os.path.join(lake_folder, "nda-handshake.md"))
               and not (await hs())["tell_person"].startswith("Acting for"))
+        # ---- A listed name finds its own company, even when another company's
+        # legal name is the same words.
+        twin_folder = os.path.join(test_home, "storage-twin")
+        await co(action="add", name="Lakeside Example LLC", folder=twin_folder)
+        await co(action="add", name="Second", folder=lake_folder)
+        untwinned = await co(action="remove", name="lakeside example llc")
+        left = _structured(untwinned) or {"companies": []}
+        check("a company can be removed by the name it is listed under, even when "
+              "another company has that legal name",
+              not getattr(untwinned, "is_error", False)
+              and twin_folder not in [c["folder"] for c in left["companies"]]
+              and "Second" in [c["name"] for c in left["companies"]],
+              _text(untwinned)[:200])
+
+    # ---- A folder the computer will not let the connector open (for example
+    # one in iCloud Drive) is reported in plain words, not as a bare failure.
+    import builtins
+    import mcp_server as _server
+    from mcp.server.mcpserver.exceptions import ToolError as _ToolError
+    blocked_folder = os.path.join(test_home, "storage-blocked")
+    os.makedirs(blocked_folder)
+    blocked_file = os.path.join(blocked_folder, "nda-handshake.md")
+    shutil.copy(os.path.join(EXAMPLES, "harbor-fictional", "nda-handshake.md"), blocked_file)
+    os.environ["NDA_HANDSHAKE_HOME"] = os.path.join(test_home, "home-blocked")
+    os.environ.pop("NDA_HANDSHAKE_STORAGE", None)
+    _sealed.save_settings(blocked_folder)
+    real_open = builtins.open
+
+    def refusing_open(file, *args, **kwargs):
+        if isinstance(file, str) and os.path.abspath(file).startswith(blocked_folder):
+            raise PermissionError(1, "Operation not permitted", file)
+        return real_open(file, *args, **kwargs)
+
+    def refused(call):
+        try:
+            call()
+        except _ToolError as e:
+            return str(e)
+        return ""
+
+    builtins.open = refusing_open
+    try:
+        said = refused(lambda: _server.check_file(file_path=blocked_file))
+        check("a file the computer will not open is reported in plain words",
+              "could not open" in said and blocked_file in said
+              and "iCloud Drive" in said and "ordinary folder" in said
+              and "Nothing is wrong with the file" in said, said[:200])
+        said = refused(lambda: _server.handshake())
+        check("the front door says the same instead of failing without a reason",
+              "could not open" in said and "ordinary folder" in said, said[:200])
+        listing = _server.companies()
+        check("the company list says the file cannot be opened, not that it is unconfirmed",
+              "will not let the connector open" in listing["tell_person"]
+              and "no confirmation yet" not in listing["tell_person"]
+              and listing["companies"][0]["file_readable"] is False
+              and listing["companies"][0]["has_file"] is True, listing["tell_person"][:200])
+    finally:
+        builtins.open = real_open
+    listing = _server.companies()
+    check("once the file can be opened again, the company is listed as confirmed",
+          listing["companies"][0]["confirmed"] and listing["companies"][0]["file_readable"])
+    os.environ.pop("NDA_HANDSHAKE_HOME", None)
 
     shutil.rmtree(test_home, ignore_errors=True)
 
